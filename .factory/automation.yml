@@ -21,7 +21,7 @@ build:
     deploy-maven-snapshot:
       filter:
         owner: typedb
-#        branch: [ master, development ]
+        branch: [ master, development ]
       image: typedb-ubuntu-22.04
       dependencies: [ build ]
       command: |
