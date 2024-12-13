@@ -19,9 +19,9 @@ build:
         tool/ide/rust/sync.sh
         cargo generate-lockfile --quiet && echo SUCCESS
     deploy-maven-snapshot:
-      filter:
-        owner: typedb
-        branch: [ master, development ]
+#      filter:
+#        owner: typedb
+#        branch: [ master, development ]
       image: typedb-ubuntu-22.04
       dependencies: [ build ]
       command: |
