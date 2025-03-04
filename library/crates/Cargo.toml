@@ -15,7 +15,8 @@ path = "" # ignored by cargo generate-lockfile
 alcoholic_jwt = "4091.0.0"
 async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper"] }
 async-trait = "0.1.59"
-axum = { version = "0.5.15", features = ["ws"] }
+axum = { version = "0.8.1", features = ["ws"] }
+axum-login = "0.17.0"
 cc = "=1.2.15"
 bincode = "1.3.3"
 chrono = "0.4.38"
