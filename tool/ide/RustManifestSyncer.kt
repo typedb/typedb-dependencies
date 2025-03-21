@@ -171,7 +171,7 @@ class RustManifestSyncer : Callable<Unit> {
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
             return findSyncPropertiesFiles(bazelBin)
                     .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
-                    .groupBy { Pair(it.name, it.path) }.values
+                    .groupBy { Pair(it.name, it.cratePath) }.values
                     .map { TargetProperties.mergeList(it) }
                     .run { attachTestAndBuildProperties(this) }
         }
