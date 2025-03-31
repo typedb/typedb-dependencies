@@ -29,6 +29,7 @@ sh_binary(
 checkstyle_test(
     name = "checkstyle",
     include = glob(["*"]),
+    exclude = glob(["*.md"]),
     license_type = "mpl-header",
     size = "small",
 )

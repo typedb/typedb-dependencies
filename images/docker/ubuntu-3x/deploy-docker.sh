@@ -15,4 +15,4 @@ TAG="${DOCKER_ORG}/${DOCKER_REPO}:${DOCKER_VERSION}-${PLATFORM}"
 
 echo "Deploying image for ${PLATFORM}: ${TAG}"
 docker push "${TAG}"
-echo "Successfully pushed"
+echo "Successfully pushed ${TAG}"
