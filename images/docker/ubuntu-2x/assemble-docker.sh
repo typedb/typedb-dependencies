@@ -12,6 +12,3 @@ DOCKER_ORG=$3
 DOCKER_REPO=$4
 
 docker build -f $1 -t $DOCKER_ORG/$DOCKER_REPO:$DOCKER_VERSION .
-
-
-docker buildx build --platform linux/amd64 --load -f Dockerfile.amd64 -t typedb/ubuntu:3.1.0b-amd64 .
