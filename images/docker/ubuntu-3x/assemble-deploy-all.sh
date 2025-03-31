@@ -34,16 +34,10 @@ for ARCH in "${PLATFORMS[@]}"; do
 done
 
 TAG="${DOCKER_ORG}/${DOCKER_REPO}:${VERSION}"
-echo "Creating manifests for ${TAG} and ${LATEST_TAG}"
+echo "Creating ${TAG} multi-arch manifest"
 docker manifest create "${TAG}" \
   --amend "${TAG}-amd64" \
   --amend "${TAG}-arm64"
 docker manifest push "${TAG}"
-
-LATEST_TAG="${DOCKER_ORG}/${DOCKER_REPO}:latest"
-docker manifest create "${LATEST_TAG}" \
-   --amend "${TAG}-amd64" \
-   --amend "${TAG}-arm64"
-docker manifest push "${LATEST_TAG}"
 
 echo "Success"

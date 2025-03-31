@@ -38,7 +38,9 @@ To update all images via a single line, run:
 ./assemble-deploy-all.sh
 ```
 
-This script automatically assembles and publishes all platform-specific images with a multi-arch image (both `$VERSION` and `latest` tags). 
+This script automatically assembles and publishes all platform-specific images with a multi-arch image.
+
+Note that there is no `latest` tag preparation as multiple Ubuntu image versions can be supported in parallel for different purposes. 
 
 #### Separate steps
 
