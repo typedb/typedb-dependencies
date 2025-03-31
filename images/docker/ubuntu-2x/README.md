@@ -18,7 +18,7 @@ docker login
 
 ### Execution
 
-On Linux of a suitable architecture, use `bazel run //images/docker/ubuntu-2x:<target>`.
+Using a suitable OS and architecture, use `bazel run //images/docker/ubuntu-2x:<target>`.
 
-On Mac, run `assemble-docker.sh` and `deploy-docker.sh` manually, providing all the required arguments. See `BUILD` for
+If Bazel rules do not work on your machine, run `assemble-docker.sh` and `deploy-docker.sh` manually, providing all the required arguments. See `BUILD` for
 passed arguments examples.
