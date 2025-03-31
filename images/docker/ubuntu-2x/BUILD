@@ -3,7 +3,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
-load("//images/docker/ubuntu:deployment.bzl", deployment_docker = "deployment")
+load("//images/docker/ubuntu-2x:deployment.bzl", deployment_docker = "deployment")
 load("//tool/checkstyle:rules.bzl", "checkstyle_test")
 
 sh_library(
