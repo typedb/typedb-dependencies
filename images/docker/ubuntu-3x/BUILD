@@ -7,7 +7,7 @@ load("//tool/checkstyle:rules.bzl", "checkstyle_test")
 checkstyle_test(
     name = "checkstyle",
     include = glob(["*"]),
-    exclude = glob(["*.md"]),
+    exclude = glob(["*.md", "VERSION"]),
     license_type = "mpl-header",
     size = "small",
 )
