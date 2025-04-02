@@ -19,15 +19,16 @@ _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
 
 CrateInfo = provider(fields = [
-    "kind",            # str
-    "crate_name",      # str
-    "workspace_name",  # str
-    "crate_path",      # str
-    "version",         # str
-    "features",        # List[str]
-    "deps",            # List[target]
-    "transitive_deps", # List[target]
-    "build_deps",      # List[target]
+    "kind",              # str
+    "crate_name",        # str
+    "workspace_name",    # str
+    "crate_path",        # str
+    "version",           # str
+    "features",          # List[str]
+    "declared_features", # List[str]
+    "deps",              # List[target]
+    "transitive_deps",   # List[target]
+    "build_deps",        # List[target]
 ])
 
 CargoProjectInfo = provider(fields = [
@@ -102,6 +103,7 @@ rust_cargo_properties_aspect = aspect(
 )
 
 def _crate_info(ctx, target):
+    declared_features = []
     if _is_universe_crate(target):
         crate_name = str(target.label).split(".")[0].rsplit("-", 1)[0].removeprefix("@crates__")
     else:
@@ -109,6 +111,9 @@ def _crate_info(ctx, target):
         for tag in ctx.rule.attr.tags:
             if tag.startswith("crate-name"):
                 crate_name = tag.split("=")[1]
+            elif tag.startswith("declared-features"):
+                feature_str = tag.split("=")[1]
+                declared_features = [f.strip() for f in feature_str.split(",") if f.strip()]
 
     workspace_name = target.label.workspace_name
     crate_path = target.label.package
@@ -122,6 +127,7 @@ def _crate_info(ctx, target):
         crate_path = crate_path,
         version = getattr(ctx.rule.attr, "version", "0.0.0"),
         features = getattr(ctx.rule.attr, "crate_features", []),
+        declared_features = declared_features,
         deps = deps,
         transitive_deps = transitive_deps,
         build_deps = _crate_build_deps(ctx, target),
@@ -228,6 +234,7 @@ def _get_properties(target, ctx, source_files, crate_info):
     properties["name"] = crate_info.crate_name
     properties["path"] = crate_info.crate_path
     properties["features"] = ",".join(crate_info.features)
+    properties["declared_features"] = ",".join(crate_info.declared_features)
     properties["target.name"] = target.label.name
     properties["type"] = target_type
     properties["version"] = crate_info.version
