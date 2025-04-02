@@ -402,22 +402,22 @@ class RustManifestSyncer : Callable<Unit> {
         }
 
         data class TargetProperties(
-            val path: File,
-            val name: String,
-            val targetName: String,
-            val cratePath: String,
-            val type: Type,
-            val enabledFeatures: Collection<String>,
-            val features: Collection<String>,
-            val version: String,
-            val edition: String?,
-            val entryPointPath: Path?,
-            val buildDeps: Collection<String>,
-            val deps: Collection<Dependency>,
-            val bins: MutableCollection<TargetProperties>,
-            val tests: MutableCollection<TargetProperties>,
-            val benches: MutableCollection<TargetProperties>,
-            val buildScripts: MutableCollection<TargetProperties>,
+                val path: File,
+                val name: String,
+                val targetName: String,
+                val cratePath: String,
+                val type: Type,
+                val enabledFeatures: Collection<String>,
+                val features: Collection<String>,
+                val version: String,
+                val edition: String?,
+                val entryPointPath: Path?,
+                val buildDeps: Collection<String>,
+                val deps: Collection<Dependency>,
+                val bins: MutableCollection<TargetProperties>,
+                val tests: MutableCollection<TargetProperties>,
+                val benches: MutableCollection<TargetProperties>,
+                val buildScripts: MutableCollection<TargetProperties>,
         ) {
             val cargoWorkspaceDir get() = path.parentFile.resolve(targetName + CARGO_WORKSPACE_SUFFIX)
 
