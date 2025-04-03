@@ -34,6 +34,7 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_DEPS
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.DEPS_PREFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.EDITION
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.ENABLED_FEATURES
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.ENTRY_POINT_PATH
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.FEATURES
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.LOCAL_PATH
@@ -263,7 +264,9 @@ class RustManifestSyncer : Callable<Unit> {
 
                 cargoToml.createSubConfig().apply {
                     cargoToml.set<Config>("features", this)
-                    properties.features.forEach { set<Config>(it, emptyList<String>()) }
+                    (properties.enabledFeatures + properties.features)
+                        .distinct()
+                        .forEach { set<Config>(it, emptyList<String>()) }
                 }
 
                 cargoToml.createEntryPointSubConfig()
@@ -404,6 +407,7 @@ class RustManifestSyncer : Callable<Unit> {
                 val targetName: String,
                 val cratePath: String,
                 val type: Type,
+                val enabledFeatures: Collection<String>,
                 val features: Collection<String>,
                 val version: String,
                 val edition: String?,
@@ -483,7 +487,7 @@ class RustManifestSyncer : Callable<Unit> {
                         val name = rawKey.split(".", limit = 2)[1]
                         val rawValueProps = rawValue.split(";")
                                 .associate { it.split("=", limit = 2).let { parts -> parts[0] to parts[1] } }
-                        val features = rawValueProps[FEATURES]?.split(",")?.filter { it != "bazel" } ?: emptyList();
+                        val features = rawValueProps[ENABLED_FEATURES]?.split(",")?.filter { it != "bazel" } ?: emptyList();
                         return if (VERSION in rawValueProps) {
                             Crate(
                                     name = name,
@@ -542,6 +546,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = props.getProperty(NAME),
                                 targetName = props.getProperty(TARGET_NAME),
                                 type = Type.of(props.getProperty(TYPE)),
+                                enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
                                 features = props.getProperty(FEATURES).split(",").filter { it.isNotBlank() },
                                 version = props.getProperty(VERSION),
                                 edition = props.getProperty(EDITION, "2021"),
@@ -567,6 +572,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = base.name,
                                 targetName = base.targetName,
                                 type = base.type,
+                                enabledFeatures = (base.enabledFeatures + properties.enabledFeatures).distinct(),
                                 features = (base.features + properties.features).distinct(),
                                 version = base.version,
                                 edition = base.edition,
@@ -595,6 +601,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = first.cratePath.replace('/', '-'),
                                 targetName = first.targetName,
                                 type = first.type,
+                                enabledFeatures = first.enabledFeatures,
                                 features = first.features,
                                 version = first.version,
                                 edition = first.edition,
@@ -617,6 +624,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = lib.name,
                                 targetName = lib.targetName,
                                 type = lib.type,
+                                enabledFeatures = lib.enabledFeatures,
                                 features = lib.features,
                                 version = lib.version,
                                 edition = lib.edition,
@@ -649,6 +657,7 @@ class RustManifestSyncer : Callable<Unit> {
                 const val DEPS_PREFIX = "deps"
                 const val EDITION = "edition"
                 const val ENTRY_POINT_PATH = "entry.point.path"
+                const val ENABLED_FEATURES = "enabled.features"
                 const val FEATURES = "features"
                 const val TARGET_NAME = "target.name"
                 const val NAME = "name"
