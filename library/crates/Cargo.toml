@@ -17,7 +17,7 @@ async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper"] }
 async-trait = "0.1.59"
 axum = { version = "0.7.9", features = ["ws"] }
 axum-extra = { version = "0.9.6", features = ["typed-header"] }
-axum-server = { version = "0.7.1", features = ["tls-rustls"] }
+axum-server = { version = "0.7.1", features = ["tls-rustls-no-provider"] }
 cc = "=1.2.15"
 bincode = "1.3.3"
 chrono = "0.4.38"
@@ -74,7 +74,7 @@ tempdir = "0.3.7"
 tokio = { version = "1.28.2", features = ["rt", "rt-multi-thread"] }
 tokio-retry = "0.3.0"
 tokio-stream = "0.1.11"
-tokio-rustls = { version = "0.26.2", features = ["ring"] }
+tokio-rustls = { version = "0.26.2", features = ["ring"], default-features = false }
 tonic = { version = "^0.12", features = ["tls", "tls-roots"] }
 tonic-build = "^0.12"
 tonic-types = "^0.12"
