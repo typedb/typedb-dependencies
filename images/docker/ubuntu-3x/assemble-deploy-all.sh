@@ -29,8 +29,11 @@ DOCKER_REPO=ubuntu
 PLATFORMS=("amd64" "arm64") # Update `docker manifest` commands below if it's changed
 
 for ARCH in "${PLATFORMS[@]}"; do
-  ./assemble-docker.sh "Dockerfile.${ARCH}" "${ARCH}" "${VERSION}" "${DOCKER_ORG}" "${DOCKER_REPO}"
-  ./deploy-docker.sh "${ARCH}" "${VERSION}" "${DOCKER_ORG}" "${DOCKER_REPO}"
+  # Should we just invoke the bazel targets here instead?
+  ASSEMBLE_TARGET="//images/docker/ubuntu-3x:assemble-docker-${ARCH}"
+  DEPLOY_TARGET="//images/docker/ubuntu-3x:deploy-docker-${ARCH}"
+  bazel run $ASSEMBLE_TARGET
+  bazel run $DEPLOY_TARGET
 done
 
 TAG="${DOCKER_ORG}/${DOCKER_REPO}:${VERSION}"

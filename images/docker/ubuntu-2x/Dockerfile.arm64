@@ -1,14 +1,7 @@
-#!/usr/bin/env bash
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
-set -ex
-
-DOCKER_VERSION_LIB=$1
-DOCKER_VERSION=`$DOCKER_VERSION_LIB`
-DOCKER_ORG=$2
-DOCKER_REPO=$3
-
-docker push $DOCKER_ORG/$DOCKER_REPO:$DOCKER_VERSION
+FROM ubuntu@sha256:c0dd38485ed8b6e149d2fc935d1c61a3b750cda3b3eace0ad6df4abe33fa2b90
+RUN apt-get -y update && apt-get install -y openjdk-11-jre-headless && rm -rf /var/lib/apt/lists
