@@ -2,7 +2,7 @@
 
 These images are prepared for TypeDB 2.x and contain all the required dependencies like JVM.
 
-Images are tagged based on the current Git commit SHA.
+Images are prepared for two base architectures: `arm64` and `amd64`. Images are tagged based on the current `VERSION` and Git commit SHA.
 
 ## Usage
 

@@ -13,13 +13,13 @@ genrule(
     outs = ["tag-amd64.txt"],
     cmd = "cat $(location :VERSION) | tr -d '\n' > $(location tag-amd64.txt) && echo \"-amd64\" >> $(location tag-amd64.txt)",
 )
+
 genrule(
     name = "tag-arm64",
     srcs = [":VERSION"],
     outs = ["tag-arm64.txt"],
     cmd = "cat $(location :VERSION) | tr -d '\n' > $(location tag-arm64.txt) && echo \"-arm64\" >> $(location tag-arm64.txt)",
 )
-
 
 sh_binary(
     name = "assemble-docker-amd64",
