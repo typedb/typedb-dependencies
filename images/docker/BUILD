@@ -3,6 +3,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 load("//tool/checkstyle:rules.bzl", "checkstyle_test")
+exports_files(["assemble-docker.sh", "deploy-docker.sh"])
 
 checkstyle_test(
     name = "checkstyle",

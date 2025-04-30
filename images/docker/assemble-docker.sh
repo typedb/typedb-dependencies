@@ -7,13 +7,12 @@ set -ex
 
 # Usage: ./assemble-docker.sh Dockerfile.amd64 amd64 3.1.0 typedb ubuntu
 
-DOCKERFILE=$1
+DOCKERFILE=$(realpath $1)
 PLATFORM=$2
-DOCKER_VERSION=$3
+TAG=$(cat $3)
 DOCKER_ORG=$4
 DOCKER_REPO=$5
-TAG="${DOCKER_ORG}/${DOCKER_REPO}:${DOCKER_VERSION}-${PLATFORM}"
-
-echo "Assembling image for ${PLATFORM}: ${TAG}"
-docker buildx build --platform "linux/${PLATFORM}" --load -f "${DOCKERFILE}" -t "${TAG}" .
-echo "Successfully assembled ${TAG}"
+FULL_TAG="${DOCKER_ORG}/${DOCKER_REPO}:${TAG}"
+echo "Assembling image for ${PLATFORM}: ${FULL_TAG}"
+docker buildx build --platform "linux/${PLATFORM}" --load -f $DOCKERFILE -t "${FULL_TAG}" .
+echo "Successfully assembled ${FULL_TAG}"

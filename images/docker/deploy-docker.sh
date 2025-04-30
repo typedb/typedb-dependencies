@@ -7,12 +7,11 @@ set -ex
 
 # Usage: ./deploy-docker.sh amd64 3.1.0 typedb ubuntu
 
-PLATFORM=$1
-DOCKER_VERSION=$2
-DOCKER_ORG=$3
-DOCKER_REPO=$4
-TAG="${DOCKER_ORG}/${DOCKER_REPO}:${DOCKER_VERSION}-${PLATFORM}"
+TAG=$(cat $1)
+DOCKER_ORG=$2
+DOCKER_REPO=$3
+TAG="${DOCKER_ORG}/${DOCKER_REPO}:${TAG}"
 
-echo "Deploying image for ${PLATFORM}: ${TAG}"
+echo "Deploying image: ${TAG}"
 docker push "${TAG}"
 echo "Successfully pushed ${TAG}"
