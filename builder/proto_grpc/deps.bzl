@@ -7,8 +7,30 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def deps():
+    zlib()
     rules_proto_grpc()
     com_github_grpc_grpc()
+
+def zlib():
+    # Apple Clang 17 (recent MacOS versions) is not compatible with the old zlib
+    # used in the grpc libraries below. Since we are not able to update the grpc
+    # libs (it requires Bazel modules), we have to use a newer zlib manually.
+    http_archive(
+        name = "zlib",
+        urls = ["https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz"],
+        strip_prefix = "zlib-1.3.1",
+        sha256 = "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
+        build_file_content = """
+cc_library(
+    name = "zlib",
+    srcs = glob(["*.c"]),
+    hdrs = glob(["*.h"]),
+    includes = ["."],
+    copts = ["-include", "unistd.h"],
+    visibility = ["//visibility:public"],
+)
+""",
+    )
 
 def rules_proto_grpc():
     git_repository(
