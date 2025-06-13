@@ -4,6 +4,8 @@
 
 artifacts = {
     "androidx.annotation:annotation": "1.2.0",
+    "aws.sdk.kotlin:ebs-jvm": "1.3.23",
+    "aws.sdk.kotlin:ec2-jvm": "1.3.23",
     "aws.sdk.kotlin:sqs-jvm": "1.3.23",
     "aws.sdk.kotlin:marketplacemetering-jvm": "1.3.23",
     "ch.qos.logback:logback-classic": "1.4.9",
@@ -44,6 +46,7 @@ artifacts = {
     "com.google.api.grpc:proto-google-common-protos" : "2.9.0",
     "com.google.api:gax": "1.64.0",
     "com.google.api:gax-grpc": "1.64.0",
+    "com.google.api:gax-httpjson": "0.81.0",
     "com.google.api-client:google-api-client": "2.0.0",
     "com.google.api-client:google-api-client-gson": "2.0.0",
     "com.google.apis:google-api-services-servicecontrol": "v1-rev20221014-2.0.0",
@@ -53,6 +56,7 @@ artifacts = {
     "com.google.auto.value:auto-value-annotations" : "1.9",
     "com.google.cloud:google-cloud-secretmanager": "1.5.2",
     "com.google.cloud:google-cloud-pubsub": "1.112.5",
+    "com.google.cloud:google-cloud-compute": "1.2.0-alpha",
     "com.google.api.grpc:proto-google-cloud-pubsub-v1": "1.94.5",
     "com.google.code.findbugs:annotations": "3.0.1",
     "com.google.code.findbugs:jsr305": "3.0.2",
@@ -148,6 +152,8 @@ artifacts = {
     "io.fabric8:kubernetes-model-apps": "6.10.0",
     "io.fabric8:kubernetes-model-core": "6.10.0",
     "io.fabric8:kubernetes-model-policy": "6.10.0",
+    "io.fabric8:volumesnapshot-client": "6.10.0",
+    "io.fabric8:volumesnapshot-model": "6.10.0",
     "io.ktor:ktor-client-auth-jvm": "2.3.7",
     "io.ktor:ktor-client-cio-jvm": "2.3.7",
     "io.ktor:ktor-client-content-negotiation-jvm": "2.3.7",
