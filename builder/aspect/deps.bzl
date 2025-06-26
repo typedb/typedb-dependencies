@@ -15,7 +15,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 def aspect_bazel_lib():
     http_archive(
         name = "aspect_bazel_lib",
-        sha256 = "d0529773764ac61184eb3ad3c687fb835df5bee01afedf07f0cf1a45515c96bc",
-        strip_prefix = "bazel-lib-1.42.3",
-        url = "https://github.com/aspect-build/bazel-lib/releases/download/v1.42.3/bazel-lib-v1.42.3.tar.gz",
+        sha256 = "04feedcd06f71d0497a81fdd3220140a373ff9d2bff94620fbd50b774f96d8e0",
+        strip_prefix = "bazel-lib-1.40.2",
+        url = "https://github.com/aspect-build/bazel-lib/releases/download/v1.40.2/bazel-lib-v1.40.2.tar.gz",
     )
