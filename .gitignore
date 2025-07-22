@@ -6,11 +6,7 @@
 .DS_Store
 *.iml
 .ijwb/
-bazel-bin
-bazel-out
-bazel-typedb-dependencies
-bazel-testlogs
-bazel-test
+bazel-*
 library/crates/cargo
 tool/bazelcache/.terraform/*
 target

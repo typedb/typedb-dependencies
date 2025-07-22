@@ -3,13 +3,27 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 load("//tool/checkstyle:rules.bzl", "checkstyle_test")
+load("@io_bazel_rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
 
 package(default_visibility = ["//visibility:public"])
 
-py_binary(
+kt_jvm_library(
+    name = "docs-lib",
+    srcs = ["Docs.kt"],
+    deps = [
+        "@typedb_bazel_distribution//common",
+        "@typedb_bazel_distribution//common/shell",
+        "@typedb_bazel_distribution//common/util",
+    ],
+)
+
+java_binary(
     name = "docs",
-    srcs = ["docs.py"],
-    main = "docs.py"
+    runtime_deps = [
+        ":docs-lib",
+    ],
+    main_class = "com.typedb.dependencies.tool.release.DocsKt",
+    visibility = ["//visibility:public"],
 )
 
 checkstyle_test(
