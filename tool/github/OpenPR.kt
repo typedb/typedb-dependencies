@@ -6,6 +6,7 @@
 
 package com.typedb.dependencies.tool.github
 
+import java.lang.System.getenv
 import org.kohsuke.github.GitHub
 import picocli.CommandLine
 import java.util.concurrent.Callable
@@ -32,8 +33,7 @@ object OpenPR: Callable<Int> {
     @CommandLine.Option(names = ["--username"], description = ["The GitHub username of the user opening the PR"])
     private var username: String = DEFAULT_USERNAME
 
-    @CommandLine.Option(names = ["--token"], description = ["The GitHub authentication token"])
-    private lateinit var token: String
+    private var token: String = getenv("OPEN_PR_GITHUB_TOKEN") ?: throw RuntimeException("OPEN_PR_GITHUB_TOKEN environment variable must be set")
 
     @JvmStatic
     fun main(args: Array<String>): Unit = exitProcess(CommandLine(OpenPR).execute(*args))
