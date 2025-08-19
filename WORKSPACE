@@ -14,6 +14,8 @@ load("//builder/rust:deps.bzl", rust_deps = "deps")
 rust_deps()
 load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies")
 rules_rust_dependencies()
+load("@rules_rust//tools/rust_analyzer:deps.bzl", "rust_analyzer_dependencies")
+rust_analyzer_dependencies()
 load("//builder/rust:versions.bzl", "rust_toolchain_versioned")
 rust_toolchain_versioned()
 
