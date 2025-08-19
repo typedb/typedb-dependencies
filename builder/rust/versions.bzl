@@ -3,7 +3,6 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 load("@rules_rust//rust:repositories.bzl", "rust_register_toolchains", "rust_analyzer_toolchain_tools_repository")
-load("@rules_rust//rust:defs.bzl", "rust_common")
 
 RUST_VERSION_TYPEDB = "1.81.0"
 def rust_toolchain_versioned():
