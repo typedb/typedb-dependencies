@@ -12,11 +12,10 @@ workspace(name = "typedb_dependencies")
 # Load //builder/rust
 load("//builder/rust:deps.bzl", rust_deps = "deps")
 rust_deps()
-
-load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies")
 rules_rust_dependencies()
-load("@rules_rust//rust:defs.bzl", "rust_common")
-rust_register_toolchains(edition = "2021", rust_analyzer_version = rust_common.default_version)
+load("//builder/rust:versions.bzl", "rust_toolchain_versioned")
+rust_toolchain_versioned()
 
 # Load //builder/python
 load("//builder/python:deps.bzl", "rules_python")
