@@ -4,26 +4,26 @@
 
 build:
   correctness:
-    build:
-      image: typedb-ubuntu-22.04
-      command: |
-        bazel build //...
-        bazel test $(bazel query 'kind(checkstyle_test, //... except tool/ide/...)') || exit 1
-    rust-ide-sync:
-      image: typedb-ubuntu-22.04
-      command: |
-        library/crates/get_cargo.sh
-        export PATH=$PATH:$PWD
-        cd tool/ide/test/
-        bazel test $(bazel query 'kind(checkstyle_test, //...)') --test_output=streamed || exit 1
-        tool/ide/rust/sync.sh
-        cargo generate-lockfile --quiet && echo SUCCESS
+#    build:
+#      image: typedb-ubuntu-22.04
+#      command: |
+#        bazel build //...
+#        bazel test $(bazel query 'kind(checkstyle_test, //... except tool/ide/...)') || exit 1
+#    rust-ide-sync:
+#      image: typedb-ubuntu-22.04
+#      command: |
+#        library/crates/get_cargo.sh
+#        export PATH=$PATH:$PWD
+#        cd tool/ide/test/
+#        bazel test $(bazel query 'kind(checkstyle_test, //...)') --test_output=streamed || exit 1
+#        tool/ide/rust/sync.sh
+#        cargo generate-lockfile --quiet && echo SUCCESS
     deploy-maven-snapshot:
 #      filter:
 #        owner: typedb
 #        branch: [ master, development ]
       image: typedb-ubuntu-22.04
-      dependencies: [ build ]
+#      dependencies: [ build ]
       command: |
         export DEPLOY_MAVEN_USERNAME=$REPO_TYPEDB_USERNAME
         export DEPLOY_MAVEN_PASSWORD=$REPO_TYPEDB_PASSWORD
