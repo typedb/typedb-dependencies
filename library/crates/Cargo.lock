@@ -6067,6 +6067,7 @@ dependencies = [
  "chrono-tz",
  "clap 4.5.47",
  "coerce",
+ "crc32fast",
  "criterion",
  "crossbeam",
  "cucumber",
