@@ -37,8 +37,8 @@ backtrace = "=0.3.74"
 base64 = "0.22.1"
 bincode = "1.3.3"
 cc = "=1.2.15"
-chrono = "0.4.38"
-chrono-tz = { version = "0.9.0", features = ["case-insensitive"] }
+chrono = "0.4.42"
+chrono-tz = { version = "0.10.4", features = ["case-insensitive"] }
 clap = "4.0.26"
 coerce = "0.8.3"
 crc32fast = "1.5.0"
