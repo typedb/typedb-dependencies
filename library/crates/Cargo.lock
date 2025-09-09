@@ -6085,6 +6085,7 @@ dependencies = [
  "clap 4.5.40",
  "coerce",
  "criterion",
+ "crc32fast",
  "crossbeam",
  "cucumber",
  "cxx",
