@@ -102,6 +102,9 @@ artifacts = {
     "com.newrelic.logging:logback": "3.1.0",
     "com.newrelic.telemetry:telemetry-core": "0.16.0",
     "com.newrelic.telemetry:telemetry-http-okhttp": "0.16.0",
+    "com.openai:openai-java": "3.5.3",
+    "com.openai:openai-java-client-okhttp": "3.5.3",
+    "com.openai:openai-java-core": "3.5.3",
     "com.posthog.java:posthog": "1.1.1",
     "com.quantego:clp-java": {
         "exclude": ["com.google.android.tools:dx"],
@@ -168,6 +171,7 @@ artifacts = {
     "io.ktor:ktor-server-auth-jwt-jvm": "2.3.7",
     "io.ktor:ktor-server-content-negotiation-jvm": "2.3.7",
     "io.ktor:ktor-server-core-jvm": "2.3.7",
+    "io.ktor:ktor-server-cors-jvm": "2.3.7",
     "io.ktor:ktor-server-netty-jvm": "2.3.7",
     "io.ktor:ktor-server-default-headers-jvm": "2.3.7",
     "io.ktor:ktor-server-status-pages-jvm": "2.3.7",
