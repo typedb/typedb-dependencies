@@ -91,6 +91,7 @@ artifacts = {
     "com.google.re2j:re2j" : "1.6",
     "com.google.truth:truth" : "1.0.1",
     "com.jcraft:jsch": "0.1.55",
+    "com.knuddels:jtokkit": "1.1.0",
     "com.microsoft.azure:azure": "1.33.1",
     "com.microsoft.azure:azure-client-authentication": "1.7.4",
     "com.microsoft.azure:azure-client-runtime": "1.7.4",
