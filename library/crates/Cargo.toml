@@ -51,7 +51,7 @@ glob = "0.3.2"
 globset = "=0.4.16" # pinned because the newer versions require rust 2024 (delete later)
 hmac = "0.12.1"
 http = "1.1.0"
-home = "0.5.11"
+home = "=0.5.11"
 hyper = { version = "0.14.31", features = ["full"] }
 hyper-rustls = "0.25.0"
 ignore = "=0.4.23" # pinned because the newer versions require rust 2024 (delete later)
