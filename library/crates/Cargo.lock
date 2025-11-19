@@ -1981,7 +1981,7 @@ dependencies = [
  "bstr",
  "log",
  "regex-automata",
- "regex-syntax 0.8.6",
+ "regex-syntax 0.8.8",
 ]
 
 [[package]]
@@ -6285,16 +6285,19 @@ dependencies = [
  "fluvio-helm",
  "futures",
  "glob",
+ "globset",
  "hmac 0.12.1",
  "home",
  "http 1.3.1",
  "hyper 0.14.32",
  "hyper-rustls 0.25.0",
+ "ignore",
  "itertools 0.10.5",
  "jsonwebtoken",
  "k8s-openapi",
  "kube",
  "librocksdb-sys",
+ "linked_hash_set",
  "log",
  "lz4",
  "macro_rules_attribute",
