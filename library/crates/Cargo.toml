@@ -33,15 +33,18 @@ env_logger = "0.10.0"
 fluvio-helm = "0.4.3"
 futures = { version = "0.3.30", features = ["executor", "thread-pool"] }
 glob = "0.3.2"
+globset = "=0.4.16" # pinned because the newer versions require rust 2024
 hmac = "0.12.1"
 http = "1.1.0"
-home = "0.5.11"
+home = "=0.5.11" # pinned because the newer versions require rust 2024
 hyper = { version = "0.14.31", features = ["full"] }
 hyper-rustls = "0.25.0"
+ignore = "=0.4.23" # pinned because the newer versions require rust 2024
 itertools = "0.10.3"
 jsonwebtoken = "9.3.1"
 k8s-openapi = { version = "0.16.0", features = ["v1_25"] }
 kube = { version = "0.77.0", features = ["runtime", "derive"] }
+linked_hash_set = "=0.1.5" # pinned because the newer versions require rust 2024 (delete later)
 log = "0.4.17"
 lz4 = "1.24.0"
 macro_rules_attribute = "0.2.0"
