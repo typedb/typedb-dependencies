@@ -135,13 +135,13 @@ _swig_java_wrapper = rule(
             default = Label("@swig//:swig"),
             allow_single_file = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             allow_single_file = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
 )
