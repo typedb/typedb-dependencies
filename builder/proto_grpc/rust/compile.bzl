@@ -43,7 +43,7 @@ rust_tonic_compile = rule(
         ),
         "_compile_script": attr.label(
             executable = True,
-            cfg = "host",
+            cfg = "exec",
             default = "@typedb_dependencies//builder/proto_grpc/rust:compile",
         ),
     }

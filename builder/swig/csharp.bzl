@@ -109,7 +109,7 @@ swig_csharp_wrapper = rule(
             default = Label("@swig//:swig"),
             allow_single_file = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         ),
     },
 )
