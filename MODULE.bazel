@@ -489,3 +489,31 @@ cc_binary(
 )
     """,
 )
+
+# Buildozer and unused_deps tools
+http_file(
+    name = "buildozer_linux",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/buildozer-linux-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+http_file(
+    name = "buildozer_mac",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/buildozer-mac-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+http_file(
+    name = "unused_deps_linux",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/unused_deps-linux-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+http_file(
+    name = "unused_deps_mac",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/unused_deps-mac-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+
+# Workspace refs stub for Bzlmod compatibility
+# In WORKSPACE mode, this extracts commit/tag info from existing_rules().
+# In Bzlmod, we provide an empty refs.json since version info is handled differently.
+workspace_refs_stub = use_repo_rule("//tool:workspace_refs_stub.bzl", "workspace_refs_stub")
+workspace_refs_stub(name = "typedb_dependencies_workspace_refs")
