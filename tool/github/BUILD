@@ -8,7 +8,7 @@ load("@typedb_dependencies//tool/checkstyle:rules.bzl", "checkstyle_test")
 kt_jvm_library(
     name = "open-pr-jar",
     srcs = glob(["*.kt"]),
-    data = glob(["template/**/*"]),
+    data = glob(["template/**/*"], allow_empty = True),
     deps = [
         "@typedb_bazel_distribution//common",
         "@typedb_bazel_distribution//common/shell",

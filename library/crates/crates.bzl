@@ -3,6 +3,9 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+# DEPRECATED: This file is for WORKSPACE mode only.
+# New projects should use MODULE.bazel (Bzlmod) instead.
+# The crate configuration is now defined in MODULE.bazel.
 
 load("@rules_rust//crate_universe:deps_bootstrap.bzl", "cargo_bazel_bootstrap")
 load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "render_config")
