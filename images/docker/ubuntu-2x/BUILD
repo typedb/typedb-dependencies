@@ -24,32 +24,28 @@ genrule(
 sh_binary(
     name = "assemble-docker-amd64",
     srcs = ["//images/docker:assemble-docker.sh"],
-    data = ["Dockerfile.amd64", "VERSION", "tag-amd64"],
-    deps = [":tag-amd64"],
+    data = ["Dockerfile.amd64", "VERSION", ":tag-amd64"],
     args = ["$(location Dockerfile.amd64)", "amd64", "$(location :tag-amd64)", deployment_docker["docker.organisation"], deployment_docker["docker.repository"]]
 )
 
 sh_binary(
     name = "assemble-docker-arm64",
     srcs = ["//images/docker:assemble-docker.sh"],
-    data = ["Dockerfile.arm64", "VERSION", "tag-arm64"],
-    deps = [":tag-arm64"],
+    data = ["Dockerfile.arm64", "VERSION", ":tag-arm64"],
     args = ["$(location Dockerfile.arm64)", "arm64", "$(location :tag-arm64)", deployment_docker["docker.organisation"], deployment_docker["docker.repository"]]
 )
 
 sh_binary(
     name = "deploy-docker-amd64",
-    deps = [],
     srcs = ["//images/docker:deploy-docker.sh"],
-    data = ["VERSION", "tag-amd64"],
+    data = ["VERSION", ":tag-amd64"],
     args = ["$(location :tag-amd64)", deployment_docker["docker.organisation"], deployment_docker["docker.repository"]]
 )
 
 sh_binary(
     name = "deploy-docker-arm64",
-    deps = [],
     srcs = ["//images/docker:deploy-docker.sh"],
-    data = ["VERSION", "tag-arm64"],
+    data = ["VERSION", ":tag-arm64"],
     args = ["$(location :tag-arm64)", deployment_docker["docker.organisation"], deployment_docker["docker.repository"]]
 )
 
