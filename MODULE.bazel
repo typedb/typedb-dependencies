@@ -375,6 +375,8 @@ maven.install(
         "https://maven.pkg.jetbrains.space/public/p/compose/dev",
     ],
     strict_visibility = True,
+    # Use pinned versions when transitive deps conflict (e.g., gRPC versions from firebase-admin)
+    version_conflict_policy = "pinned",
 )
 use_repo(maven, "maven")
 
