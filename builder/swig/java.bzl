@@ -35,14 +35,30 @@ def _swig_java_wrapper_impl(ctx):
     for h in ctx.attr.lib[CcInfo].compilation_context.headers.to_list():
         args = ["-I" + h.dirname] + args
 
+    # Find the SWIG library path for setting SWIG_LIB environment variable
+    # This overrides the compiled-in SWIG_LIB path which doesn't work in Bzlmod
+    swig_lib_path = None
+    swig_lib_files = ctx.attr._swig_templates.files.to_list()
+    for f in swig_lib_files:
+        if "/Lib/" in f.path:
+            # Extract path up to and including /Lib
+            swig_lib_path = f.path.split("/Lib/")[0] + "/Lib"
+            break
+
+    env = {}
+    if swig_lib_path:
+        env["SWIG_LIB"] = swig_lib_path
+
     ctx.actions.run(
         inputs = depset([ctx.file.interface] + ctx.files.includes, transitive = [
             ctx.attr.lib[CcInfo].compilation_context.headers,
             ctx.attr._swig.data_runfiles.files,
+            ctx.attr._swig_templates.files,
         ]),
         outputs = [wrap_src, wrap_java_dir] + swig_headers,
         executable = ctx.file._swig,
         arguments = args,
+        env = env,
     )
 
     wrap_zip = ctx.actions.declare_file(module_name + ".zip")
@@ -136,6 +152,10 @@ _swig_java_wrapper = rule(
             allow_single_file = True,
             executable = True,
             cfg = "exec",
+        ),
+        "_swig_templates": attr.label(
+            default = Label("@swig//:templates"),
+            doc = "SWIG library files (.i, .swg)",
         ),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
