@@ -105,7 +105,11 @@ rust_cargo_properties_aspect = aspect(
 def _crate_info(ctx, target):
     features = []
     if _is_universe_crate(target):
-        crate_name = str(target.label).split(".")[0].rsplit("-", 1)[0].removeprefix("@crates__")
+        # For crate_universe crates, the target name is the crate name
+        # WORKSPACE: @crates__tracing-0.1.40//:tracing -> tracing
+        # Bzlmod: @@rules_rust++crate+crates__tracing-0.1.40//:tracing -> tracing
+        # Note: Bazel target names use underscores, but Cargo package names use hyphens
+        crate_name = target.label.name.replace("_", "-")
     else:
         crate_name = ctx.rule.attr.name
         for tag in ctx.rule.attr.tags:
@@ -207,12 +211,25 @@ def _copy_to_bin(ctx, src, dst):
     )
 
 def _should_generate_cargo_project(ctx, target):
-    return (str(target.label).startswith("@typedb") or str(target.label).startswith("//")
-        or str(target.label).startswith("@//")) and \
+    label_str = str(target.label)
+    # Exclude crate_universe crates - they already have Cargo.toml files
+    if _is_universe_crate(target):
+        return False
+    # Handle both WORKSPACE-style labels (// or @//) and Bzlmod canonical labels (@@//)
+    # Match: @typedb*, //, @//, @@// (root module in Bzlmod), @@typedb* (Bzlmod deps)
+    is_local_or_typedb = (label_str.startswith("@typedb") or label_str.startswith("//")
+        or label_str.startswith("@//") or label_str.startswith("@@//") or label_str.startswith("@@typedb"))
+    return is_local_or_typedb and \
         ctx.rule.kind in _TARGET_TYPES and _TARGET_TYPES[ctx.rule.kind] in ["bin", "lib", "test"]
 
 def _is_universe_crate(target):
-    return str(target.label).startswith("@crates__")
+    label_str = str(target.label)
+    # Handle both WORKSPACE-style (@crates__) and Bzlmod-style crate_universe labels
+    # WORKSPACE: @crates__chrono-0.4.38//:chrono
+    # Bzlmod: @@rules_rust++crate+crates__smallvec-1.15.1//:smallvec
+    return (label_str.startswith("@crates__") or
+            "crate+crates__" in label_str or
+            label_str.startswith("@@crates//") or label_str.startswith("@crates//"))
 
 def _build_cargo_properties_file(target, ctx, source_files, crate_info):
     properties_file = ctx.actions.declare_file("{}.cargo.properties".format(ctx.rule.attr.name))
