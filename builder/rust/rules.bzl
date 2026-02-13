@@ -138,7 +138,7 @@ rust_cbindgen = rule(
             default = Label("@crates//:cbindgen__cbindgen"),
             allow_single_file = True,
             executable = True,
-            cfg = "host",
+            cfg = "exec",
         )
     },
     toolchains = [
