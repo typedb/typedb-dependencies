@@ -8,45 +8,70 @@ module(
     compatibility_level = 1,
 )
 
-# BCR dependencies
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "bazel_features", version = "1.21.0")
-bazel_dep(name = "rules_cc", version = "0.0.17")
-bazel_dep(name = "toolchains_llvm", version = "1.3.0", dev_dependency = True)
-bazel_dep(name = "rules_java", version = "8.6.2")
-bazel_dep(name = "rules_jvm_external", version = "6.6")
-bazel_dep(name = "rules_python", version = "1.0.0")
-bazel_dep(name = "rules_rust", version = "0.56.0")
-bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "protobuf", version = "29.3", repo_name = "com_google_protobuf")
-# repo_name maintains compatibility with BUILD files using @io_bazel_rules_kotlin
-bazel_dep(name = "rules_kotlin", version = "2.0.0", repo_name = "io_bazel_rules_kotlin")
-bazel_dep(name = "rules_pkg", version = "1.0.1")
+# ===========================================================
+# Repository rule declarations
+# ===========================================================
 
-# typedb_bazel_distribution via git_override (until BCR published)
-bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
-local_path_override(
-    module_name = "typedb_bazel_distribution",
-    path = "../bazel-distribution",
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# ===========================================================
+# Dev-only: C/C++ hermetic toolchain
+# ===========================================================
+# LLVM toolchain + sysroot. Only active when building this repo standalone.
+# Note: The llvm extension can only be used by the root module. When this repo
+# is used as a dependency, the root module must provide its own LLVM toolchain.
+
+bazel_dep(name = "toolchains_llvm", version = "1.3.0", dev_dependency = True)
+
+llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "18.1.8",
+)
+llvm.sysroot(
+    name = "llvm_toolchain",
+    label = "@org_chromium_sysroot_linux_arm64//:sysroot",
+    targets = ["linux-aarch64"],
+)
+use_repo(llvm, "llvm_toolchain")
+
+# Chromium sysroot for ARM64
+http_archive(
+    name = "org_chromium_sysroot_linux_arm64",
+    build_file_content = """
+filegroup(
+    name = "sysroot",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "2e3a344f48da76b6532f3de86759f94359292143ccaf6094814e09441a36629f",
+    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/0e28d9832614729bb5b731161ff96cb4d516f345/debian_bullseye_arm64_sysroot.tar.xz"],
 )
 
-# Python toolchain
+register_toolchains("@llvm_toolchain//:all", dev_dependency = True)
+
+# ===========================================================
+# Languages & toolchains
+# ===========================================================
+
+# --- Python ---
+bazel_dep(name = "rules_python", version = "1.0.0")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     is_default = True,
     python_version = "3.11",
 )
 
-# Pip dependencies for CI tools
-pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-pip.parse(
-    hub_name = "typedb_dependencies_ci_pip",
-    python_version = "3.11",
-    requirements_lock = "//:tool/requirements.txt",
-)
-use_repo(pip, "typedb_dependencies_ci_pip")
+# --- Kotlin ---
+# repo_name maintains compatibility with BUILD files using @io_bazel_rules_kotlin
+bazel_dep(name = "rules_kotlin", version = "2.0.0", repo_name = "io_bazel_rules_kotlin")
+register_toolchains("@io_bazel_rules_kotlin//kotlin/internal:default_toolchain")
 
-# Rust toolchain
+# --- Rust ---
+bazel_dep(name = "rules_rust", version = "0.56.0")
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2021",
@@ -62,33 +87,107 @@ rust.toolchain(
 use_repo(rust, "rust_toolchains")
 register_toolchains("@rust_toolchains//:all")
 
-# Rust crates
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
-crate.from_cargo(
-    name = "crates",
-    cargo_lockfile = "//:library/crates/Cargo.lock",
-    manifests = ["//:library/crates/Cargo.toml"],
-    supported_platform_triples = [
-        "aarch64-apple-darwin",
-        "aarch64-unknown-linux-gnu",
-        "x86_64-apple-darwin",
-        "x86_64-pc-windows-msvc",
-        "x86_64-unknown-linux-gnu",
-    ],
-)
-crate.annotation(
-    crate = "cbindgen",
-    gen_binaries = ["cbindgen"],
-)
-crate.annotation(
-    crate = "librocksdb-sys",
-    rustc_flags = ["-C", "opt-level=3"],
-)
-use_repo(crate, "crates")
+# --- Java ---
+bazel_dep(name = "rules_java", version = "8.6.2")
 
-# Maven dependencies
+# --- C/C++ ---
+bazel_dep(name = "rules_cc", version = "0.0.17")
+
+# ===========================================================
+# Code generation
+# ===========================================================
+# Tools that generate source code from definitions/schemas.
+
+# --- Protobuf / gRPC ---
+bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "protobuf", version = "29.3", repo_name = "com_google_protobuf")
+
+# --- CxxBridge: Rust/C++ FFI binding generator ---
+http_file(
+    name = "cxxbridge_linux",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/versions/1.0.55/cxxbridge-v1.0.55-linux"],
+    executable = True,
+)
+http_file(
+    name = "cxxbridge_mac",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/versions/1.0.55/cxxbridge-v1.0.55-mac"],
+    executable = True,
+)
+http_file(
+    name = "cxxbridge_windows",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/versions/1.0.55/cxxbridge-v1.0.55-windows.exe"],
+    executable = True,
+)
+
+# --- SWIG: multi-language binding generator ---
+http_archive(
+    name = "swig",
+    urls = ["http://prdownloads.sourceforge.net/swig/swig-4.1.1.tar.gz"],
+    strip_prefix = "swig-4.1.1",
+    sha256 = "2af08aced8fcd65cdb5cc62426768914bedc735b1c250325203716f78e39ac9b",
+    build_file_content = """
+filegroup(
+    name = "templates",
+    srcs = glob(["Lib/**/*.i", "Lib/**/*.swg"], allow_empty = True),
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "swigconfig",
+    outs = ["Source/Include/swigconfig.h"],
+    cmd = '''cat >$@ <<EOF
+#define PACKAGE_BUGREPORT "http://www.swig.org"
+#define PACKAGE_VERSION "4.1.1"
+#define SWIG_CXX "unknown"
+#define SWIG_LIB "external/swig/Lib"
+#define SWIG_LIB_WIN_UNIX SWIG_LIB
+#define SWIG_PLATFORM "unknown"
+EOF
+    ''',
+)
+
+cc_binary(
+    name = "swig",
+    srcs = [":swigconfig"] + glob([
+        "Source/**/*.h",
+        "Source/**/*.c",
+        "Source/**/*.cc",
+        "Source/**/*.cxx",
+    ], allow_empty = True),
+    copts = ["-fexceptions"],
+    data = [":templates"],
+    includes = [
+        "Source/CParse",
+        "Source/DOH",
+        "Source/Doxygen",
+        "Source/Include",
+        "Source/Modules",
+        "Source/Preprocessor",
+        "Source/Swig",
+    ],
+    visibility = ["//visibility:public"],
+)
+    """,
+)
+
+# ===========================================================
+# Package managers
+# ===========================================================
+# Extension-managed dependency resolution for third-party libraries.
+
+# --- Pip ---
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "typedb_dependencies_ci_pip",
+    python_version = "3.11",
+    requirements_lock = "//:tool/requirements.txt",
+)
+use_repo(pip, "typedb_dependencies_ci_pip")
+
+# --- Maven ---
 # Note: The full artifact list is defined in library/maven/artifacts.bzl
 # For Bzlmod, we inline the artifacts here. In future, this could be generated.
+bazel_dep(name = "rules_jvm_external", version = "6.6")
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     artifacts = [
@@ -380,196 +479,36 @@ maven.install(
 )
 use_repo(maven, "maven")
 
-# Register Kotlin toolchain
-register_toolchains("@io_bazel_rules_kotlin//kotlin/internal:default_toolchain")
-
-# http_file repositories for cxxbridge binaries
-http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-http_file(
-    name = "cxxbridge_linux",
-    urls = ["https://repo.typedb.com/public/public-tools/raw/versions/1.0.55/cxxbridge-v1.0.55-linux"],
-    executable = True,
-)
-http_file(
-    name = "cxxbridge_mac",
-    urls = ["https://repo.typedb.com/public/public-tools/raw/versions/1.0.55/cxxbridge-v1.0.55-mac"],
-    executable = True,
-)
-http_file(
-    name = "cxxbridge_windows",
-    urls = ["https://repo.typedb.com/public/public-tools/raw/versions/1.0.55/cxxbridge-v1.0.55-windows.exe"],
-    executable = True,
-)
-
-# SonarCloud scanner
-http_file(
-    name = "sonarscanner_any_zip",
-    urls = ["https://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/5.0.1.3006/sonar-scanner-cli-5.0.1.3006.zip"],
-)
-http_file(
-    name = "sonarscanner_mac_zip",
-    urls = ["https://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/5.0.1.3006/sonar-scanner-cli-5.0.1.3006-macosx.zip"],
-)
-http_file(
-    name = "sonarscanner_linux_zip",
-    urls = ["https://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/5.0.1.3006/sonar-scanner-cli-5.0.1.3006-linux.zip"],
-)
-
-# Checkstyle tool dependencies (using custom repo names for compatibility)
-http_jar = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_jar")
-http_jar(
-    name = "antlr_antlr",
-    urls = ["https://repo1.maven.org/maven2/antlr/antlr/2.7.7/antlr-2.7.7.jar"],
-    sha256 = "88fbda4b912596b9f56e8e12e580cc954bacfb51776ecfddd3e18fc1cf56dc4c",
-)
-http_jar(
-    name = "org_antlr_antlr4_runtime",
-    urls = ["https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.5.1-1/antlr4-runtime-4.5.1-1.jar"],
-    sha256 = "ffca72bc2a25bb2b0c80a58cee60530a78be17da739bb6c91a8c2e3584ca099e",
-)
-http_jar(
-    name = "com_puppycrawl_tools_checkstyle",
-    urls = ["https://repo1.maven.org/maven2/com/puppycrawl/tools/checkstyle/8.15/checkstyle-8.15.jar"],
-    sha256 = "ac3602c4d50c3113b14614a6ac38ec03c63d9839e4316e057c4bb66d97183087",
-)
-http_jar(
-    name = "commons_beanutils_commons_beanutils",
-    urls = ["https://repo1.maven.org/maven2/commons-beanutils/commons-beanutils/1.9.3/commons-beanutils-1.9.3.jar"],
-    sha256 = "c058e39c7c64203d3a448f3adb588cb03d6378ed808485618f26e137f29dae73",
-)
-http_jar(
-    name = "info_picocli_picocli",
-    urls = ["https://repo1.maven.org/maven2/info/picocli/picocli/3.8.2/picocli-3.8.2.jar"],
-    sha256 = "b16786a3817530151ccc44ac44f1f803b9a1b4069e98c4d1ed2fc0ece12d6de7",
-)
-http_jar(
-    name = "commons_collections_commons_collections",
-    urls = ["https://repo1.maven.org/maven2/commons-collections/commons-collections/3.2.2/commons-collections-3.2.2.jar"],
-    sha256 = "eeeae917917144a68a741d4c0dff66aa5c5c5fd85593ff217bced3fc8ca783b8",
-)
-http_jar(
-    name = "com_google_guava_guava30jre",
-    urls = ["https://repo1.maven.org/maven2/com/google/guava/guava/30.1-jre/guava-30.1-jre.jar"],
-    sha256 = "e6dd072f9d3fe02a4600688380bd422bdac184caf6fe2418cfdd0934f09432aa",
-)
-http_jar(
-    name = "org_slf4j_slf4j_api",
-    urls = ["https://repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.7/slf4j-api-1.7.7.jar"],
-    sha256 = "69980c038ca1b131926561591617d9c25fabfc7b29828af91597ca8570cf35fe",
-)
-http_jar(
-    name = "org_slf4j_slf4j_jcl",
-    urls = ["https://repo1.maven.org/maven2/org/slf4j/jcl-over-slf4j/1.7.7/jcl-over-slf4j-1.7.7.jar"],
-    sha256 = "c6472b5950e1c23202e567c6334e4832d1db46fad604b7a0d7af71d4a014bce2",
-)
-
-# SWIG for language bindings generation
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-http_archive(
-    name = "swig",
-    urls = ["http://prdownloads.sourceforge.net/swig/swig-4.1.1.tar.gz"],
-    strip_prefix = "swig-4.1.1",
-    sha256 = "2af08aced8fcd65cdb5cc62426768914bedc735b1c250325203716f78e39ac9b",
-    build_file_content = """
-filegroup(
-    name = "templates",
-    srcs = glob(["Lib/**/*.i", "Lib/**/*.swg"], allow_empty = True),
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "swigconfig",
-    outs = ["Source/Include/swigconfig.h"],
-    cmd = '''cat >$@ <<EOF
-#define PACKAGE_BUGREPORT "http://www.swig.org"
-#define PACKAGE_VERSION "4.1.1"
-#define SWIG_CXX "unknown"
-#define SWIG_LIB "external/swig/Lib"
-#define SWIG_LIB_WIN_UNIX SWIG_LIB
-#define SWIG_PLATFORM "unknown"
-EOF
-    ''',
-)
-
-cc_binary(
-    name = "swig",
-    srcs = [":swigconfig"] + glob([
-        "Source/**/*.h",
-        "Source/**/*.c",
-        "Source/**/*.cc",
-        "Source/**/*.cxx",
-    ], allow_empty = True),
-    copts = ["-fexceptions"],
-    data = [":templates"],
-    includes = [
-        "Source/CParse",
-        "Source/DOH",
-        "Source/Doxygen",
-        "Source/Include",
-        "Source/Modules",
-        "Source/Preprocessor",
-        "Source/Swig",
+# --- Rust crates ---
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "crates",
+    cargo_lockfile = "//:library/crates/Cargo.lock",
+    manifests = ["//:library/crates/Cargo.toml"],
+    supported_platform_triples = [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc",
+        "x86_64-unknown-linux-gnu",
     ],
-    visibility = ["//visibility:public"],
 )
-    """,
+crate.annotation(
+    crate = "cbindgen",
+    gen_binaries = ["cbindgen"],
 )
+crate.annotation(
+    crate = "librocksdb-sys",
+    rustc_flags = ["-C", "opt-level=3"],
+)
+use_repo(crate, "crates")
 
-# Buildozer and unused_deps tools
-http_file(
-    name = "buildozer_linux",
-    urls = ["https://repo.typedb.com/public/public-tools/raw/files/buildozer-linux-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
-    executable = True,
-)
-http_file(
-    name = "buildozer_mac",
-    urls = ["https://repo.typedb.com/public/public-tools/raw/files/buildozer-mac-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
-    executable = True,
-)
-http_file(
-    name = "unused_deps_linux",
-    urls = ["https://repo.typedb.com/public/public-tools/raw/files/unused_deps-linux-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
-    executable = True,
-)
-http_file(
-    name = "unused_deps_mac",
-    urls = ["https://repo.typedb.com/public/public-tools/raw/files/unused_deps-mac-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
-    executable = True,
-)
+# ===========================================================
+# Native libraries
+# ===========================================================
+# Pre-built native library archives.
 
-# LLVM/Clang hermetic toolchain for C/C++ compilation (dev only)
-# Note: The llvm extension can only be used by the root module. When this repo
-# is used as a dependency, the root module must provide its own LLVM toolchain.
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm", dev_dependency = True)
-llvm.toolchain(
-    name = "llvm_toolchain",
-    llvm_version = "18.1.8",
-)
-llvm.sysroot(
-    name = "llvm_toolchain",
-    label = "@org_chromium_sysroot_linux_arm64//:sysroot",
-    targets = ["linux-aarch64"],
-)
-use_repo(llvm, "llvm_toolchain")
-
-# Chromium sysroot for ARM64
-http_archive(
-    name = "org_chromium_sysroot_linux_arm64",
-    build_file_content = """
-filegroup(
-    name = "sysroot",
-    srcs = glob(["**"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "2e3a344f48da76b6532f3de86759f94359292143ccaf6094814e09441a36629f",
-    urls = ["https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/0e28d9832614729bb5b731161ff96cb4d516f345/debian_bullseye_arm64_sysroot.tar.xz"],
-)
-
-register_toolchains("@llvm_toolchain//:all", dev_dependency = True)
-
-# Google OR-Tools for optimization
-# Build file content for OR-Tools archives
+# --- Google OR-Tools: optimization library ---
 _OR_TOOLS_LINUX_BUILD = """
 cc_import(
    name = "lib",
@@ -653,6 +592,114 @@ http_archive(
     sha256 = "1be7286e082ba346f8729a873c5fd85418ac2dc95b847d9baa5381c5ac5f5fd9",
     build_file_content = _OR_TOOLS_WINDOWS_BUILD,
 )
+
+# ===========================================================
+# Code quality
+# ===========================================================
+# Static analysis, linting, and refactoring tools.
+
+# --- SonarCloud scanner: code analysis ---
+http_file(
+    name = "sonarscanner_any_zip",
+    urls = ["https://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/5.0.1.3006/sonar-scanner-cli-5.0.1.3006.zip"],
+)
+http_file(
+    name = "sonarscanner_mac_zip",
+    urls = ["https://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/5.0.1.3006/sonar-scanner-cli-5.0.1.3006-macosx.zip"],
+)
+http_file(
+    name = "sonarscanner_linux_zip",
+    urls = ["https://repo1.maven.org/maven2/org/sonarsource/scanner/cli/sonar-scanner-cli/5.0.1.3006/sonar-scanner-cli-5.0.1.3006-linux.zip"],
+)
+
+# --- Checkstyle: Java style checker + dependencies ---
+http_jar(
+    name = "antlr_antlr",
+    urls = ["https://repo1.maven.org/maven2/antlr/antlr/2.7.7/antlr-2.7.7.jar"],
+    sha256 = "88fbda4b912596b9f56e8e12e580cc954bacfb51776ecfddd3e18fc1cf56dc4c",
+)
+http_jar(
+    name = "org_antlr_antlr4_runtime",
+    urls = ["https://repo1.maven.org/maven2/org/antlr/antlr4-runtime/4.5.1-1/antlr4-runtime-4.5.1-1.jar"],
+    sha256 = "ffca72bc2a25bb2b0c80a58cee60530a78be17da739bb6c91a8c2e3584ca099e",
+)
+http_jar(
+    name = "com_puppycrawl_tools_checkstyle",
+    urls = ["https://repo1.maven.org/maven2/com/puppycrawl/tools/checkstyle/8.15/checkstyle-8.15.jar"],
+    sha256 = "ac3602c4d50c3113b14614a6ac38ec03c63d9839e4316e057c4bb66d97183087",
+)
+http_jar(
+    name = "commons_beanutils_commons_beanutils",
+    urls = ["https://repo1.maven.org/maven2/commons-beanutils/commons-beanutils/1.9.3/commons-beanutils-1.9.3.jar"],
+    sha256 = "c058e39c7c64203d3a448f3adb588cb03d6378ed808485618f26e137f29dae73",
+)
+http_jar(
+    name = "info_picocli_picocli",
+    urls = ["https://repo1.maven.org/maven2/info/picocli/picocli/3.8.2/picocli-3.8.2.jar"],
+    sha256 = "b16786a3817530151ccc44ac44f1f803b9a1b4069e98c4d1ed2fc0ece12d6de7",
+)
+http_jar(
+    name = "commons_collections_commons_collections",
+    urls = ["https://repo1.maven.org/maven2/commons-collections/commons-collections/3.2.2/commons-collections-3.2.2.jar"],
+    sha256 = "eeeae917917144a68a741d4c0dff66aa5c5c5fd85593ff217bced3fc8ca783b8",
+)
+http_jar(
+    name = "com_google_guava_guava30jre",
+    urls = ["https://repo1.maven.org/maven2/com/google/guava/guava/30.1-jre/guava-30.1-jre.jar"],
+    sha256 = "e6dd072f9d3fe02a4600688380bd422bdac184caf6fe2418cfdd0934f09432aa",
+)
+http_jar(
+    name = "org_slf4j_slf4j_api",
+    urls = ["https://repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.7/slf4j-api-1.7.7.jar"],
+    sha256 = "69980c038ca1b131926561591617d9c25fabfc7b29828af91597ca8570cf35fe",
+)
+http_jar(
+    name = "org_slf4j_slf4j_jcl",
+    urls = ["https://repo1.maven.org/maven2/org/slf4j/jcl-over-slf4j/1.7.7/jcl-over-slf4j-1.7.7.jar"],
+    sha256 = "c6472b5950e1c23202e567c6334e4832d1db46fad604b7a0d7af71d4a014bce2",
+)
+
+# --- Buildozer & unused_deps: Bazel refactoring tools ---
+http_file(
+    name = "buildozer_linux",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/buildozer-linux-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+http_file(
+    name = "buildozer_mac",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/buildozer-mac-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+http_file(
+    name = "unused_deps_linux",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/unused_deps-linux-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+http_file(
+    name = "unused_deps_mac",
+    urls = ["https://repo.typedb.com/public/public-tools/raw/files/unused_deps-mac-7e793330b31d465f6bffe101ace2ab25d75e2eec"],
+    executable = True,
+)
+
+# ===========================================================
+# Packaging & distribution
+# ===========================================================
+# Rules and tools for assembling and releasing distributable packages.
+
+bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
+local_path_override(
+    module_name = "typedb_bazel_distribution",
+    path = "../bazel-distribution",
+)
+
+# ===========================================================
+# Bazel infrastructure
+# ===========================================================
+# Core Bazel plumbing and compatibility shims.
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "bazel_features", version = "1.21.0")
 
 # Workspace refs stub for Bzlmod compatibility
 # In WORKSPACE mode, this extracts commit/tag info from existing_rules().
