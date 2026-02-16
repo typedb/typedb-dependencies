@@ -688,9 +688,10 @@ http_file(
 
 bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
-local_path_override(
+git_override(
     module_name = "typedb_bazel_distribution",
-    path = "../bazel-distribution",
+    remote = "https://github.com/typedb/bazel-distribution",
+    commit = "5b417d0f9acf8b550851ef72a2388ca7eb92a5bf",
 )
 
 # ===========================================================
