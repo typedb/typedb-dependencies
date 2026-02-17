@@ -7,6 +7,7 @@ build:
     build:
       image: typedb-ubuntu-22.04
       command: |
+        sudo apt-get install -y libtinfo5
         bazel build //...
         bazel test $(bazel query 'kind(checkstyle_test, //... except tool/ide/...)') || exit 1
     rust-ide-sync:
