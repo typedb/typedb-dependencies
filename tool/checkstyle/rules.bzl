@@ -46,7 +46,7 @@ def _checkstyle_test_impl(ctx):
         if target not in ctx.attr.exclude:
             files.extend(target.files.to_list())
 
-    classpath = ":".join([file.path for file in ctx.files._classpath])
+    classpath = ":".join([file.short_path for file in ctx.files._classpath])
     cmd = " ".join(
         ["java -cp %s com.puppycrawl.tools.checkstyle.Main" % classpath] +
         [args] +
