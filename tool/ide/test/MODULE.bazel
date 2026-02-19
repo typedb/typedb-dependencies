@@ -1,0 +1,36 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+module(
+    name = "test_workspace",
+    version = "0.0.0",
+)
+
+# ===========================================================
+# Direct dependencies
+# ===========================================================
+
+bazel_dep(name = "typedb_dependencies", version = "0.0.0")
+local_path_override(
+    module_name = "typedb_dependencies",
+    path = "../../..",
+)
+
+# typedb_bazel_distribution is not in BCR; override required
+bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
+git_override(
+    module_name = "typedb_bazel_distribution",
+    remote = "https://github.com/typedb/bazel-distribution",
+    commit = "5b417d0f9acf8b550851ef72a2388ca7eb92a5bf",
+)
+
+# Rust rules (needed by BUILD files in this workspace)
+bazel_dep(name = "rules_rust", version = "0.56.0")
+
+# ===========================================================
+# Workspace refs stub
+# ===========================================================
+
+workspace_refs_stub = use_repo_rule("@typedb_dependencies//tool:workspace_refs_stub.bzl", "workspace_refs_stub")
+workspace_refs_stub(name = "test_workspace_refs")

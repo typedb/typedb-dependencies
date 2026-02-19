@@ -25,7 +25,7 @@ def _checkstyle_test_impl(ctx):
         template = ctx.file._checkstyle_xml_template,
         output = config,
         substitutions = {
-            "{licenseFile}" : license_file.path
+            "{licenseFile}" : license_file.short_path
         }
     )
 
@@ -37,7 +37,7 @@ def _checkstyle_test_impl(ctx):
     inputs.append(config)
 
     if properties:
-      args += " -p %s" % properties.path
+      args += " -p %s" % properties.short_path
       inputs.append(properties)
 
     files = []
@@ -52,7 +52,7 @@ def _checkstyle_test_impl(ctx):
         [args] +
         ["--%s" % x for x in opts] +
         ["--%s %s" % (k, sopts[k]) for k in sopts] +
-        [file.path for file in files]
+        [file.short_path for file in files]
     )
 
     checkstyle_wrapper = ctx.actions.declare_file("%s.sh" % ctx.attr.name)

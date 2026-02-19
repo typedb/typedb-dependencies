@@ -19,6 +19,7 @@ rust_test(
 checkstyle_test(
     name = "checkstyle",
     include = glob(["*"]),
+    exclude = ["Cargo.toml"],
     license_type = "mpl-header",
     size = "small",
 )
