@@ -124,49 +124,7 @@ http_archive(
     urls = ["http://prdownloads.sourceforge.net/swig/swig-4.1.1.tar.gz"],
     strip_prefix = "swig-4.1.1",
     sha256 = "2af08aced8fcd65cdb5cc62426768914bedc735b1c250325203716f78e39ac9b",
-    build_file_content = """
-filegroup(
-    name = "templates",
-    srcs = glob(["Lib/**/*.i", "Lib/**/*.swg"], allow_empty = True),
-    visibility = ["//visibility:public"],
-)
-
-genrule(
-    name = "swigconfig",
-    outs = ["Source/Include/swigconfig.h"],
-    cmd = '''cat >$@ <<EOF
-#define PACKAGE_BUGREPORT "http://www.swig.org"
-#define PACKAGE_VERSION "4.1.1"
-#define SWIG_CXX "unknown"
-#define SWIG_LIB "external/swig/Lib"
-#define SWIG_LIB_WIN_UNIX SWIG_LIB
-#define SWIG_PLATFORM "unknown"
-EOF
-    ''',
-)
-
-cc_binary(
-    name = "swig",
-    srcs = [":swigconfig"] + glob([
-        "Source/**/*.h",
-        "Source/**/*.c",
-        "Source/**/*.cc",
-        "Source/**/*.cxx",
-    ], allow_empty = True),
-    copts = ["-fexceptions"],
-    data = [":templates"],
-    includes = [
-        "Source/CParse",
-        "Source/DOH",
-        "Source/Doxygen",
-        "Source/Include",
-        "Source/Modules",
-        "Source/Preprocessor",
-        "Source/Swig",
-    ],
-    visibility = ["//visibility:public"],
-)
-    """,
+    build_file = "//tool/swig:swig.BUILD",
 )
 
 # ===========================================================
