@@ -217,9 +217,6 @@ def _should_generate_cargo_project(ctx, target):
 
 def _is_universe_crate(target):
     label_str = str(target.label)
-    # Handle both WORKSPACE-style (@crates__) and Bzlmod-style crate_universe labels
-    # WORKSPACE: @crates__chrono-0.4.38//:chrono
-    # Bzlmod: @@rules_rust++crate+crates__smallvec-1.15.1//:smallvec
     return (label_str.startswith("@crates__") or
             "crate+crates__" in label_str or
             label_str.startswith("@@crates//") or label_str.startswith("@crates//"))
