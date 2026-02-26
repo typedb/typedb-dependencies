@@ -105,10 +105,6 @@ rust_cargo_properties_aspect = aspect(
 def _crate_info(ctx, target):
     features = []
     if _is_universe_crate(target):
-        # For crate_universe crates, the target name is the crate name
-        # WORKSPACE: @crates__tracing-0.1.40//:tracing -> tracing
-        # Bzlmod: @@rules_rust++crate+crates__tracing-0.1.40//:tracing -> tracing
-        # Note: Bazel target names use underscores, but Cargo package names use hyphens
         crate_name = target.label.name.replace("_", "-")
     else:
         crate_name = ctx.rule.attr.name
@@ -212,11 +208,8 @@ def _copy_to_bin(ctx, src, dst):
 
 def _should_generate_cargo_project(ctx, target):
     label_str = str(target.label)
-    # Exclude crate_universe crates - they already have Cargo.toml files
     if _is_universe_crate(target):
         return False
-    # Handle both WORKSPACE-style labels (// or @//) and Bzlmod canonical labels (@@//)
-    # Match: @typedb*, //, @//, @@// (root module in Bzlmod), @@typedb* (Bzlmod deps)
     is_local_or_typedb = (label_str.startswith("@typedb") or label_str.startswith("//")
         or label_str.startswith("@//") or label_str.startswith("@@//") or label_str.startswith("@@typedb"))
     return is_local_or_typedb and \
