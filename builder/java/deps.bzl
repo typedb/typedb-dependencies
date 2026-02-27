@@ -8,22 +8,6 @@
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_jar")
 
-def rules_proto():
-    http_archive(
-        name = "rules_proto",
-        sha256 = "14a225870ab4e91869652cfd69ef2028277fc1dc4910d65d353b62d6e0ae21f4",
-        strip_prefix = "rules_proto-7.1.0",
-        url = "https://github.com/bazelbuild/rules_proto/releases/download/7.1.0/rules_proto-7.1.0.tar.gz",
-    )
-
-def bazel_features():
-    http_archive(
-        name = "bazel_features",
-        sha256 = "5d7e4eb0bb17aee392143cd667b67d9044c270a9345776a5e5a3cccbc44aa4ca",
-        strip_prefix = "bazel_features-1.21.0",
-        url = "https://github.com/bazel-contrib/bazel_features/releases/download/v1.21.0/bazel_features-v1.21.0.tar.gz",
-    )
-
 def rules_java():
     http_archive(
         name = "rules_java",
