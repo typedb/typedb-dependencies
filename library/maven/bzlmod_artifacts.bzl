@@ -2,11 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-# Maven artifact coordinates for Bzlmod.
-# MODULE.bazel cannot use load(), so this file is loaded via a module extension
-# (see maven_extension.bzl). For the WORKSPACE-mode equivalent (dict format
-# with per-artifact excludes), see artifacts.bzl.
-
 MAVEN_ARTIFACTS = [
     "androidx.annotation:annotation:1.2.0",
     "aws.sdk.kotlin:sqs-jvm:1.3.23",
