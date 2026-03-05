@@ -12,15 +12,18 @@ load("//distribution:deployment.bzl", "deployment")
 
 java_library(
     name = "typedb-common",
-    srcs = glob([
-        "collection/*.java",
-        "concurrent/*.java",
-        "concurrent/actor/*.java",
-        "concurrent/actor/eventloop/*.java",
-        "exception/*.java",
-        "util/*.java",
-        "yaml/*.java",
-    ]),
+    srcs = glob(
+        [
+            "collection/*.java",
+            "concurrent/*.java",
+            "concurrent/actor/*.java",
+            "concurrent/actor/eventloop/*.java",
+            "exception/*.java",
+            "util/*.java",
+            "yaml/*.java",
+        ],
+        allow_empty = True,
+    ),
     deps = [
         "@maven//:org_yaml_snakeyaml",
     ],
@@ -50,15 +53,18 @@ deploy_maven(
 
 checkstyle_test(
     name = "checkstyle",
-    include = glob([
-        "BUILD",
-        "collection/*",
-        "concurrent/*",
-        "concurrent/actor/*.java",
-        "concurrent/actor/eventloop/*.java",
-        "exception/*",
-        "util/*",
-        "yaml/*.java"
-    ]),
+    include = glob(
+        [
+            "BUILD",
+            "collection/*",
+            "concurrent/*",
+            "concurrent/actor/*.java",
+            "concurrent/actor/eventloop/*.java",
+            "exception/*",
+            "util/*",
+            "yaml/*.java",
+        ],
+        allow_empty = True,
+    ),
     license_type = "mpl-header",
 )
