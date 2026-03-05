@@ -27,7 +27,13 @@ llvm = use_extension(
     "llvm",
     dev_dependency = True
 )
-llvm.toolchain(name = "llvm_toolchain", llvm_version = "18.1.8")
+llvm.toolchain(
+    name = "llvm_toolchain",
+    llvm_version = "18.1.8",
+    cxx_flags = {
+        "macos": ["-mmacosx-version-min=10.13"],
+    },
+)
 llvm.sysroot(
     name = "llvm_toolchain",
     label = "@org_chromium_sysroot_linux_arm64//:sysroot",

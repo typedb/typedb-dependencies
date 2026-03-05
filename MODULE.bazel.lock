@@ -164,7 +164,7 @@
   "moduleExtensions": {
     "//library/maven:maven_extension.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "jM9ycn78DpcEloIRVIWRyVdB4JG6lKkHKGHKAIrQ8Dk=",
+        "bzlTransitiveDigest": "/1GgGaqvvh9dMGzSw9vP/DjY2L59wajADIxosbWZaDs=",
         "usagesDigest": "GD8WWDyl5JpTrILXbJy2Aj9ll4pyhkO/BOc89gMMfUg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -5375,7 +5375,7 @@
     "@@toolchains_llvm+//toolchain/extensions:llvm.bzl%llvm": {
       "general": {
         "bzlTransitiveDigest": "g4hDVPEczM4+SutQtWTk4X98eNbvayESE5cTmoiDsdM=",
-        "usagesDigest": "XVmMinHVnvkLAzOEVjM/mK0dy+MNyaAosWtgSFjtdhs=",
+        "usagesDigest": "Zmo97E4tGIVUQv7lbEVLmTcusdS7VSPYt+yqhIJxm/o=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -5408,7 +5408,11 @@
               "coverage_compile_flags": {},
               "coverage_link_flags": {},
               "cxx_builtin_include_directories": {},
-              "cxx_flags": {},
+              "cxx_flags": {
+                "macos": [
+                  "-mmacosx-version-min=10.13"
+                ]
+              },
               "cxx_standard": {},
               "dbg_compile_flags": {},
               "exec_arch": "",
