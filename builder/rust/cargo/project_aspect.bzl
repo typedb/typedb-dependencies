@@ -263,8 +263,7 @@ def _crate_deps_info(target, crate_info):
         else:
             target_to_root = _package_relative_path_to_root(target.label)
             root_to_dep = _package_path_from_root(dependency.label)
-            repository_relative_path = target_to_root + "/" + root_to_dep
-            location = "path=../{};localpath={}".format(dependency_info.crate_name, repository_relative_path)
+            location = "path={}".format(root_to_dep)
 
         enabled_features = ",".join(dependency_info.enabled_features)
         info = location + (";enabled.features={}".format(enabled_features) if enabled_features else "")
