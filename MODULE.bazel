@@ -146,9 +146,9 @@ bazel_dep(name = "rules_shell", version = "0.3.0")
 maven = use_extension("//library/maven:maven_extension.bzl", "maven")
 use_repo(maven, "maven")
 
-# Rust crates - isolated for standalone builds.
+# Rust crates - dev dependency for standalone builds only.
 # When used as a dependency, consumers should use their own crates.
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", dev_dependency = True)
 crate.from_cargo(
     name = "crates",
     cargo_lockfile = "//:library/crates/Cargo.lock",
@@ -305,7 +305,7 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "b42e1df8f3d87beeb84869419d8ec6c982f079b8",
+    commit = "cea906afdc16d34a9a55d3c0b2f5a89a88706c9c",
 )
 
 # ===========================================================
