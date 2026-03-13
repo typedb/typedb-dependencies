@@ -2,6 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+###############################################################################
+# DEPRECATED: This WORKSPACE file is kept for backward compatibility only.
+# New projects should use MODULE.bazel (Bzlmod) instead.
+# To use WORKSPACE mode, add `common --enable_workspace=true` to .bazelrc
+###############################################################################
 
 workspace(name = "typedb_dependencies")
 
@@ -9,9 +14,12 @@ workspace(name = "typedb_dependencies")
 # Load @typedb_dependencies #
 ################################
 
-# Load //builder/rust
+# Load //builder/rust (includes rules_cc and rules_rust)
 load("//builder/rust:deps.bzl", rust_deps = "deps")
 rust_deps()
+load("@rules_cc//cc:repositories.bzl", "rules_cc_dependencies", "rules_cc_toolchains")
+rules_cc_dependencies()
+rules_cc_toolchains()
 load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies")
 rules_rust_dependencies()
 load("@rules_rust//tools/rust_analyzer:deps.bzl", "rust_analyzer_dependencies")
@@ -26,7 +34,8 @@ load("@rules_python//python:repositories.bzl", "py_repositories")
 py_repositories()
 
 # Load //builder/java
-load("//builder/java:deps.bzl", "rules_jvm_external")
+load("//builder/java:deps.bzl", "rules_java", "rules_jvm_external")
+rules_java()
 rules_jvm_external()
 load("//library/maven:rules.bzl", "maven")
 

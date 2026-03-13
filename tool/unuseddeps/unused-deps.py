@@ -17,27 +17,60 @@ args = parser.parse_args()
 
 BUILDOZER_PATTERN = re.compile("buildozer 'remove deps (?P<dep>.*)' (?P<target>.*)")
 
-UNUSED_DEPS_BINARIES = {
-    "Darwin": os.path.abspath("external/unused_deps_mac/file/downloaded"),
-    "Linux": os.path.abspath("external/unused_deps_linux/file/downloaded"),
+
+def _get_runfiles_dir():
+    """Get the runfiles root directory from environment or __file__ path."""
+    runfiles_dir = os.environ.get('RUNFILES_DIR', '')
+    if runfiles_dir and os.path.isdir(runfiles_dir):
+        return runfiles_dir
+    # Derive from __file__: <runfiles>/<repo>/tool/unuseddeps/unused-deps.py
+    path = os.path.abspath(__file__)
+    while path != os.path.dirname(path):
+        path = os.path.dirname(path)
+        if path.endswith('.runfiles'):
+            return path
+    return ''
+
+
+def find_runfile(repo_name):
+    """Find a downloaded binary in runfiles, supporting both WORKSPACE and Bzlmod layouts."""
+    workspace_path = os.path.abspath(os.path.join("external", repo_name, "file", "downloaded"))
+    if os.path.exists(workspace_path):
+        return workspace_path
+    runfiles_dir = _get_runfiles_dir()
+    if runfiles_dir:
+        for entry in os.listdir(runfiles_dir):
+            if entry == repo_name or entry.endswith('+' + repo_name):
+                path = os.path.join(runfiles_dir, entry, "file", "downloaded")
+                if os.path.exists(path):
+                    return path
+    raise FileNotFoundError("Could not find {} in runfiles".format(repo_name))
+
+
+UNUSED_DEPS_REPOS = {
+    "Darwin": "unused_deps_mac",
+    "Linux": "unused_deps_linux",
 }
 
-BUILDOZER_BINARIES = {
-    "Darwin": os.path.abspath("external/buildozer_mac/file/downloaded"),
-    "Linux": os.path.abspath("external/buildozer_linux/file/downloaded"),
+BUILDOZER_REPOS = {
+    "Darwin": "buildozer_mac",
+    "Linux": "buildozer_linux",
 }
 
 system = platform.system()
 
-if system not in UNUSED_DEPS_BINARIES:
+if system not in UNUSED_DEPS_REPOS:
     raise ValueError('unused_deps does not have binary for {}'.format(system))
 
-if system not in BUILDOZER_BINARIES:
+if system not in BUILDOZER_REPOS:
     raise ValueError('buildozer does not have binary for {}'.format(system))
+
+unused_deps_binary = find_runfile(UNUSED_DEPS_REPOS[system])
+buildozer_binary = find_runfile(BUILDOZER_REPOS[system])
 
 
 output = subprocess.check_output([
-    UNUSED_DEPS_BINARIES[system]
+    unused_deps_binary
 ], cwd=os.getenv('BUILD_WORKSPACE_DIRECTORY'), stderr=subprocess.STDOUT).decode()
 
 unused_deps = defaultdict(set)
@@ -66,5 +99,5 @@ if args.mode == 'list':
 elif args.mode == 'remove':
     for cmd in buildozer_commands:
         subprocess.check_call([
-            cmd.replace('buildozer', BUILDOZER_BINARIES[system])
+            cmd.replace('buildozer', buildozer_binary)
         ], shell=True, cwd=os.getenv('BUILD_WORKSPACE_DIRECTORY'))
