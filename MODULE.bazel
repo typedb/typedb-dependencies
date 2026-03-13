@@ -61,7 +61,7 @@ register_toolchains("@llvm_toolchain//:all", dev_dependency = True)
 # ===========================================================
 
 # Rust
-bazel_dep(name = "rules_rust", version = "0.56.0")
+bazel_dep(name = "rules_rust", version = "0.69.0")
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2021",
@@ -146,8 +146,9 @@ bazel_dep(name = "rules_shell", version = "0.3.0")
 maven = use_extension("//library/maven:maven_extension.bzl", "maven")
 use_repo(maven, "maven")
 
-# Rust crates
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+# Rust crates - isolated for standalone builds.
+# When used as a dependency, consumers should use their own crates.
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
 crate.from_cargo(
     name = "crates",
     cargo_lockfile = "//:library/crates/Cargo.lock",
