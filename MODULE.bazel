@@ -146,9 +146,9 @@ bazel_dep(name = "rules_shell", version = "0.3.0")
 maven = use_extension("//library/maven:maven_extension.bzl", "maven")
 use_repo(maven, "maven")
 
-# Rust crates - dev dependency for standalone builds only.
-# When used as a dependency, consumers should use their own crates.
-crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", dev_dependency = True)
+# Rust crates - isolated so consumers can define their own crate extensions without conflict.
+# builder/proto_grpc/rust depends on @crates, so this must be visible to non-root modules.
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate", isolate = True)
 crate.from_cargo(
     name = "crates",
     cargo_lockfile = "//:library/crates/Cargo.lock",
