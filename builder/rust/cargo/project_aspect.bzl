@@ -105,7 +105,10 @@ rust_cargo_properties_aspect = aspect(
 def _crate_info(ctx, target):
     features = []
     if _is_universe_crate(target):
-        crate_name = target.label.name.replace("_", "-")
+        crate_name = target.label.name
+        for tag in ctx.rule.attr.tags:
+            if tag.startswith("crate-name"):
+                crate_name = tag.split("=")[1]
     else:
         crate_name = ctx.rule.attr.name
         for tag in ctx.rule.attr.tags:
