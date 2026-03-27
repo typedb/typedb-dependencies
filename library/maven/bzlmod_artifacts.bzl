@@ -273,7 +273,7 @@ MAVEN_ARTIFACTS = [
     "aws.sdk.kotlin:ebs-jvm:1.3.23",
     "aws.sdk.kotlin:ec2-jvm:1.3.23",
     "co.novu:novu-kotlin:1.1.0",
-    {"group": "com.google.apis", "artifact": "google-api-services-servicecontrol", "version": "v2-rev20250425-2.0.0"},
+    {"group": "com.google.apis", "artifact": "google-api-services-servicecontrol", "version": "v1-rev20250124-2.0.0"},
     "com.google.cloud:google-cloud-compute:1.55.0",
     "com.knuddels:jtokkit:1.1.0",
     "com.openai:openai-java:0.36.0",
