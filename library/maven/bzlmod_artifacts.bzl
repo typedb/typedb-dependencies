@@ -261,6 +261,28 @@ MAVEN_ARTIFACTS = [
     "com.mailgun:mailgun-java:1.1.2",
     "io.github.openfeign:feign-core:13.2.1",
     "com.vdurmont:semver4j:3.1.0",
+
+    # TypeDB/Vaticle artifacts (used by typedb-cloud)
+    "com.vaticle.typedb:typedb-runner:2.28.3",
+    "com.vaticle.typedb:typedb-cloud-runner:2.28.3",
+    "com.vaticle.typedb:typedb-common:0.0.0-56ed57603e67103d0a371721db2d15e7e727ccac",
+    "com.vaticle.typedb:typedb-driver:2.28.0-rc0",
+    "com.vaticle.typeql:typeql-lang:2.28.0",
+
+    # Additional artifacts for typedb-cloud
+    "aws.sdk.kotlin:ebs-jvm:1.3.23",
+    "aws.sdk.kotlin:ec2-jvm:1.3.23",
+    "co.novu:novu-kotlin:1.1.0",
+    {"group": "com.google.apis", "artifact": "google-api-services-servicecontrol", "version": "v2-rev20250425-2.0.0"},
+    "com.google.cloud:google-cloud-compute:1.55.0",
+    "com.knuddels:jtokkit:1.1.0",
+    "com.openai:openai-java:0.36.0",
+    "com.openai:openai-java-client-okhttp:0.36.0",
+    "com.openai:openai-java-core:0.36.0",
+    "io.fabric8:volumesnapshot-client:6.10.0",
+    "io.fabric8:volumesnapshot-model:6.10.0",
+    "io.ktor:ktor-server-cors-jvm:2.3.7",
+    "io.ktor:ktor-server-status-pages-jvm:2.3.7",
 ]
 
 MAVEN_EXCLUDED_ARTIFACTS = [
