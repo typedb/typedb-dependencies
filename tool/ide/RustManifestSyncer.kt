@@ -37,7 +37,6 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Targe
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.ENABLED_FEATURES
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.ENTRY_POINT_PATH
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.FEATURES
-import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.LOCAL_PATH
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.NAME
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.PATH
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.WORKSPACE_NAME
@@ -134,15 +133,15 @@ class RustManifestSyncer : Callable<Unit> {
             val rootTomlPath = workspace.resolve(CARGO_TOML);
             Files.deleteIfExists(rootTomlPath);
 
-            val manifests = loadSyncProperties(bazelBin)
-                    .filter { shouldGenerateManifest(it) }
+            val targets = loadSyncProperties(bazelBin);
+            val manifests = targets.filter { shouldGenerateManifest(it) }
                     .map { ManifestGenerator(it).generateManifest(bazelBin) }
                     .toMutableList()
 
             // append Cargo Workspace to root Cargo Manifest, or create it if it does not exist
             val workspaceManifest = manifests.stream().filter { it.toPath().parent.equals(workspace) }
                     .findFirst()
-            val cargoWorkspaceConfig = createCargoWorkspace(manifests);
+            val cargoWorkspaceConfig = createCargoWorkspace(manifests, targets);
             val cargoWorkspaceString = TomlWriter().writeToString(cargoWorkspaceConfig.unmodifiable())
 
             Files.newOutputStream(rootTomlPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE).use {
@@ -155,16 +154,26 @@ class RustManifestSyncer : Callable<Unit> {
             println(manifests.joinToString(System.lineSeparator()))
         }
 
-        private fun createCargoWorkspace(manifests: List<File>): Config {
+        private fun createCargoWorkspace(manifests: List<File>, targets: List<TargetProperties>): Config {
             val manifestPaths = manifests.map { workspace.relativize(it.toPath().parent).toString() }
                     .filter { it.isNotBlank() }
                     .distinct()
                     .toList()
 
-            val cargoToml = Config.inMemory();
+            val cargoToml = Config.inMemory()
             val subConfig = cargoToml.createSubConfig()
             subConfig.set<List<String>>("members", manifestPaths)
             subConfig.set<String>("resolver", "2")
+
+            val allDeps = targets.flatMap { arrayOf(listOf(it), it.tests, it.benches).flatMap { it } }
+                    .flatMap { it.deps }
+                    .distinct()
+
+            subConfig.createSubConfig().apply {
+                subConfig.set<Config>("dependencies", this)
+                allDeps.forEach { set<Config>(it.name, it.toToml(File("."), canonicalExternalPathDeps)) }
+            }
+
             cargoToml.set<Config>("workspace", subConfig)
             return cargoToml
         }
@@ -273,7 +282,11 @@ class RustManifestSyncer : Callable<Unit> {
 
                 cargoToml.createSubConfig().apply {
                     cargoToml.set<Config>("dependencies", this)
-                    properties.deps.forEach { set<Config>(it.name, it.toToml(properties.cargoWorkspaceDir, canonicalExternalPathDeps)) }
+                    properties.deps.forEach { 
+                        val depConfig = Config.inMemory()
+                        depConfig.set<Boolean>("workspace", true)
+                        set<Config>(it.name, depConfig)
+                    }
                 }
 
                 cargoToml.addDevAndBuildDependencies()
@@ -314,30 +327,14 @@ class RustManifestSyncer : Callable<Unit> {
                     createSubConfig().apply {
                         this@addDevAndBuildDependencies.set<Config>("dev-dependencies", this)
                         arrayOf(properties.tests, properties.benches).flatMap { it }
-                                .flatMap { it.deps.map { dep -> Pair(it, dep) } }
-                                .distinctBy { (_, dep) -> dep.name }
-                                .filter { (_, dep) -> (dep.name != properties.name) && properties.deps.none { existingDep -> dep.name == existingDep.name } }
-                                .forEach { (dep_properties, transitive_dep) ->
-                                    // WARN: this is a hack to replace 'local' repository paths that are relative to the test
-                                    //       to make them relative to the parent Cargo Toml
-                                    //       currently will only work for <package>/tests (ie. exactly one level of nesting)
-                                    val toml = transitive_dep.toToml(dep_properties.cargoWorkspaceDir, canonicalExternalPathDeps);
-                                    var path: String? = toml.get("path");
-                                    if (path != null && path.startsWith("../..")) {
-                                        // we are at path X
-                                        // we have a test or bench dep at X/tests/...Y
-                                        // we have the relative path from Root to X and Root to Y.
-                                        // so we can get the relative path from X to Y.
-                                        // we also have the relative path from Y to dependencies of Y
-                                        // so: take relative path from X to Y, resolve relative path from Y to dep(Y), and normalise.
-                                        val rootToSelf = Path.of(properties.cratePath).toFile();
-                                        val rootToDep = Path.of(dep_properties.cratePath).toFile();
-                                        val selfToDepRelative = rootToDep.relativeTo(rootToSelf);
-                                        val depToTransitiveDepRelative = path;
-                                        val selfToTransitiveDepRelative = selfToDepRelative.resolve(depToTransitiveDepRelative).normalize();
-                                        toml.set<String>("path", selfToTransitiveDepRelative.toString())
-                                    }
-                                    set<Config>(transitive_dep.name, toml)
+                                .flatMap { it.deps }
+                                .map { it.name }
+                                .distinct()
+                                .filter { dep_name -> (dep_name != properties.name) && properties.deps.none { existingDep -> dep_name == existingDep.name } }
+                                .forEach { dep_name ->
+                                    val toml = Config.inMemory()
+                                    toml.set<Boolean>("workspace", true)
+                                    set<Config>(dep_name, toml)
                                 }
                     }
                 }
@@ -436,23 +433,12 @@ class RustManifestSyncer : Callable<Unit> {
 
                 data class Local(
                         override val name: String,
-                        val external_path: String?,
-                        val local_path: String?,
+                        val local_path: String,
                         val features: List<String>,
                 ) : Dependency(name) {
                     override fun toToml(cargoWorkspaceDir: File, canonicalExternalPathDeps: MutableMap<String, String>): Config {
                         return Config.inMemory().apply {
-                            if (external_path != null) {
-                                set<String>("path",
-                                    canonicalExternalPathDeps.computeIfAbsent(name) {
-                                        external_path.replace(EXTERNAL_PLACEHOLDER, cargoWorkspaceDir.toString())
-                                    }
-                                )
-                            } else if (local_path != null) {
-                                set<String>("path", local_path)
-                            } else {
-                                throw IllegalStateException();
-                            }
+                            set<String>("path", local_path)
                             set<List<String>>("features", features)
                             set<Boolean>("default-features", false)
                         }
@@ -494,14 +480,7 @@ class RustManifestSyncer : Callable<Unit> {
                                     version = rawValueProps[VERSION]!!,
                                     features = features,
                             )
-                        } else if (LOCAL_PATH in rawValueProps) {
-                            Local(
-                                    name = name,
-                                    external_path = null,
-                                    local_path = rawValueProps[LOCAL_PATH]!!,
-                                    features = features,
-                            )
-                        } else {
+                        } else if (WORKSPACE_NAME in rawValueProps) {
                             // WARN: we rely on this naming scheme:
                             //       any internal git dependency is named "@{workspaceName}" where all hyphens in the name are replaced by underscores
                             val workspaceName = rawValueProps[WORKSPACE_NAME]!!;
@@ -511,6 +490,12 @@ class RustManifestSyncer : Callable<Unit> {
                                     repoName = repoName,
                                     commit = workspaceRefs["commits"].asObject()[workspaceName]?.asString(),
                                     tag = workspaceRefs["tags"].asObject()[workspaceName]?.asString(),
+                                    features = features,
+                            )
+                        } else {
+                            Local(
+                                    name = name,
+                                    local_path = rawValueProps[PATH]!!,
                                     features = features,
                             )
                         }
@@ -662,7 +647,6 @@ class RustManifestSyncer : Callable<Unit> {
                 const val TARGET_NAME = "target.name"
                 const val NAME = "name"
                 const val PATH = "path"
-                const val LOCAL_PATH = "localpath"
                 const val COMMIT = "commit"
                 const val TAG = "tag"
                 const val TYPE = "type"
