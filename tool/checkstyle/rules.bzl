@@ -25,7 +25,7 @@ def _checkstyle_test_impl(ctx):
         template = ctx.file._checkstyle_xml_template,
         output = config,
         substitutions = {
-            "{licenseFile}" : license_file.path
+            "{licenseFile}" : license_file.short_path
         }
     )
 
@@ -37,7 +37,7 @@ def _checkstyle_test_impl(ctx):
     inputs.append(config)
 
     if properties:
-      args += " -p %s" % properties.path
+      args += " -p %s" % properties.short_path
       inputs.append(properties)
 
     files = []
@@ -46,13 +46,13 @@ def _checkstyle_test_impl(ctx):
         if target not in ctx.attr.exclude:
             files.extend(target.files.to_list())
 
-    classpath = ":".join([file.path for file in ctx.files._classpath])
+    classpath = ":".join([file.short_path for file in ctx.files._classpath])
     cmd = " ".join(
         ["java -cp %s com.puppycrawl.tools.checkstyle.Main" % classpath] +
         [args] +
         ["--%s" % x for x in opts] +
         ["--%s %s" % (k, sopts[k]) for k in sopts] +
-        [file.path for file in files]
+        [file.short_path for file in files]
     )
 
     checkstyle_wrapper = ctx.actions.declare_file("%s.sh" % ctx.attr.name)
@@ -113,15 +113,15 @@ checkstyle_test = rule(
              default = "//tool/checkstyle/templates:checkstyle.xml"
         ),
         "_classpath": attr.label_list(default=[
-            Label("@com_puppycrawl_tools_checkstyle//jar"),
-            Label("@commons_beanutils_commons_beanutils//jar"),
-            Label("@info_picocli_picocli//jar"),
-            Label("@commons_collections_commons_collections//jar"),
-            Label("@org_slf4j_slf4j_api//jar"),
-            Label("@org_slf4j_slf4j_jcl//jar"),
-            Label("@antlr_antlr//jar"),
-            Label("@org_antlr_antlr4_runtime//jar"),
-            Label("@com_google_guava_guava30jre//jar"),
+            Label("@com_puppycrawl_tools_checkstyle//file"),
+            Label("@commons_beanutils_commons_beanutils//file"),
+            Label("@info_picocli_picocli//file"),
+            Label("@commons_collections_commons_collections//file"),
+            Label("@org_slf4j_slf4j_api//file"),
+            Label("@org_slf4j_slf4j_jcl//file"),
+            Label("@antlr_antlr//file"),
+            Label("@org_antlr_antlr4_runtime//file"),
+            Label("@com_google_guava_guava30jre//file"),
         ]),
         "_license_files": attr.label_list(
             allow_files=True,

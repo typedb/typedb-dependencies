@@ -484,7 +484,7 @@ class RustManifestSyncer : Callable<Unit> {
                             // WARN: we rely on this naming scheme:
                             //       any internal git dependency is named "@{workspaceName}" where all hyphens in the name are replaced by underscores
                             val workspaceName = rawValueProps[WORKSPACE_NAME]!!;
-                            val repoName = workspaceName.replace("_", "-");
+                            val repoName = workspaceName.removeSuffix("+").replace("_", "-");
                             Git(
                                     name = name,
                                     repoName = repoName,

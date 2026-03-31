@@ -105,7 +105,10 @@ rust_cargo_properties_aspect = aspect(
 def _crate_info(ctx, target):
     features = []
     if _is_universe_crate(target):
-        crate_name = str(target.label).split(".")[0].rsplit("-", 1)[0].removeprefix("@crates__")
+        crate_name = target.label.name
+        for tag in ctx.rule.attr.tags:
+            if tag.startswith("crate-name"):
+                crate_name = tag.split("=")[1]
     else:
         crate_name = ctx.rule.attr.name
         for tag in ctx.rule.attr.tags:
@@ -207,12 +210,19 @@ def _copy_to_bin(ctx, src, dst):
     )
 
 def _should_generate_cargo_project(ctx, target):
-    return (str(target.label).startswith("@typedb") or str(target.label).startswith("//")
-        or str(target.label).startswith("@//")) and \
+    label_str = str(target.label)
+    if _is_universe_crate(target):
+        return False
+    is_local_or_typedb = (label_str.startswith("@typedb") or label_str.startswith("//")
+        or label_str.startswith("@//") or label_str.startswith("@@//") or label_str.startswith("@@typedb"))
+    return is_local_or_typedb and \
         ctx.rule.kind in _TARGET_TYPES and _TARGET_TYPES[ctx.rule.kind] in ["bin", "lib", "test"]
 
 def _is_universe_crate(target):
-    return str(target.label).startswith("@crates__")
+    label_str = str(target.label)
+    return (label_str.startswith("@crates__") or
+            "crate+crates__" in label_str or
+            label_str.startswith("@@crates//") or label_str.startswith("@crates//"))
 
 def _build_cargo_properties_file(target, ctx, source_files, crate_info):
     properties_file = ctx.actions.declare_file("{}.cargo.properties".format(ctx.rule.attr.name))
