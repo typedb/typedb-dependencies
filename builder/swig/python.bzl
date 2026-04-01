@@ -169,12 +169,15 @@ def swig_python(*, name, lib, shared_lib_name=None, import_name=None, python_hea
         srcs = [swig_wrapper_name],
         linkshared = True,
         linkopts = select({
+            "@typedb_bazel_distribution//platform:is_mac": [
+                "-undefined", "dynamic_lookup",
+                "-framework", "Security",
+                "-framework", "CoreFoundation",
+                "-framework", "SystemConfiguration",
+                "-framework", "IOKit",
+            ],
             # TODO: move http certificate/encryption libraries into arguments
             "@typedb_bazel_distribution//platform:is_windows": ["ntdll.lib", "secur32.lib", "crypt32.lib", "ncrypt.lib"],
-            "//conditions:default": [],
-        }),
-        copts = select({
-            "@typedb_bazel_distribution//platform:is_mac": ["-undefined", "dynamic_lookup"],
             "//conditions:default": [],
         }),
     )

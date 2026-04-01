@@ -63,6 +63,10 @@ class ManifestWriter : Callable<Unit> {
 
         cargoToml.addBuildDependencies()
 
+        // Add empty [workspace] to prevent cargo from walking up to find a parent workspace
+        // This is needed on Windows where Bazel sandboxing doesn't fully isolate the execroot
+        cargoToml.set<Config>("workspace", Config.inMemory())
+
         return GENERATED_FILE_NOTICE + TomlWriter().writeToString(cargoToml.unmodifiable())
     }
 
