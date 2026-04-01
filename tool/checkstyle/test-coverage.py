@@ -20,9 +20,20 @@ def try_decode(s):
 if __name__ == '__main__':
     print('Checking if there are any workspace files not covered by checkstyle...')
 
-    workspace_files, _ = tc.shell_execute([
-        'find', '.',
-            '(', '-name', '.git',
+    workspace_dir = os.getenv("BUILD_WORKSPACE_DIRECTORY")
+
+    # Read .bazelignore to exclude directories that can't have checkstyle_test targets
+    bazelignore_dirs = []
+    bazelignore_path = os.path.join(workspace_dir, '.bazelignore')
+    if os.path.exists(bazelignore_path):
+        with open(bazelignore_path) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    bazelignore_dirs.append(line)
+
+    prune_args = [
+        '(', '-name', '.git',
             '-o', '-name', '.DS_Store',
             '-o', '-name', '.idea',
             '-o', '-name', '.ijwb',
@@ -33,8 +44,15 @@ if __name__ == '__main__':
             '-o', '-name', '*.md',
             '-o', '-name', 'node_modules',
             '-o', '-name', 'target',
-        ')', '-prune', '-o', '-type', 'f', '-print'
-    ], cwd=os.getenv("BUILD_WORKSPACE_DIRECTORY"))
+    ]
+    for ignored_dir in bazelignore_dirs:
+        prune_args.extend(['-o', '-name', ignored_dir])
+    prune_args.extend([')', '-prune', '-o', '-type', 'f', '-print'])
+
+    workspace_files, _ = tc.shell_execute(
+        ['find', '.'] + prune_args,
+        cwd=workspace_dir,
+    )
     workspace_files = workspace_files.strip().split("\n")
 
     checkstyle_targets_xml, _ = tc.shell_execute([
