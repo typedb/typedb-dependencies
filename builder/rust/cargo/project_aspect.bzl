@@ -271,9 +271,8 @@ def _crate_deps_info(target, crate_info):
         elif not _is_external_target(target) and _is_external_target(dependency):
             location = "path=../{};workspace_name={}".format(dependency_info.crate_name, dependency_info.workspace_name)
         else:
-            target_to_root = _package_relative_path_to_root(target.label)
             root_to_dep = _package_path_from_root(dependency.label)
-            location = "path={}".format(root_to_dep)
+            location = "path=../{};repopath={}".format(dependency_info.crate_name, root_to_dep)
 
         enabled_features = ",".join(dependency_info.enabled_features)
         info = location + (";enabled.features={}".format(enabled_features) if enabled_features else "")

@@ -495,7 +495,7 @@ class RustManifestSyncer : Callable<Unit> {
                         } else {
                             Local(
                                     name = name,
-                                    local_path = rawValueProps[PATH]!!,
+                                    local_path = rawValueProps[REPO_PATH] ?: rawValueProps[PATH]!!,
                                     features = features,
                             )
                         }
@@ -647,6 +647,7 @@ class RustManifestSyncer : Callable<Unit> {
                 const val TARGET_NAME = "target.name"
                 const val NAME = "name"
                 const val PATH = "path"
+                const val REPO_PATH = "repopath"
                 const val COMMIT = "commit"
                 const val TAG = "tag"
                 const val TYPE = "type"
