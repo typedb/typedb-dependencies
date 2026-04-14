@@ -535,7 +535,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
                                 features = props.getProperty(FEATURES).split(",").filter { it.isNotBlank() },
                                 version = props.getProperty(VERSION),
-                                edition = props.getProperty(EDITION, "2021"),
+                                edition = props.getProperty(EDITION, "2024"),
                                 deps = parseDependencies(extractDependencyEntries(props), workspaceRefs),
                                 buildDeps = props.getProperty(BUILD_DEPS, "").split(",").filter { it.isNotBlank() },
                                 entryPointPath = props.getProperty(ENTRY_POINT_PATH)?.let { Path(it) },

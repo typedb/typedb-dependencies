@@ -13,7 +13,7 @@ _TARGET_TYPES = {
     "_build_script_run": "build"
 }
 
-_DEFAULT_RUST_EDITION = "2021"
+_DEFAULT_RUST_EDITION = "2024"
 
 _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
