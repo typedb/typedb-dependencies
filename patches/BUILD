@@ -8,6 +8,7 @@ exports_files(["rules_rust.patch"])
 
 checkstyle_test(
     name = "checkstyle",
+    include = [":BUILD"],
     exclude = glob(["*.patch"]),
     license_type = "mpl-header",
     size = "small",
