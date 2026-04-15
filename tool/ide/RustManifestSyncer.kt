@@ -614,7 +614,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 features = lib.features,
                                 version = lib.version,
                                 edition = lib.edition,
-                                deps = package_properties.flatMap { it.deps }.distinct(),
+                                deps = package_properties.flatMap { it.deps }.filter { it.name != lib.name }.distinct(),
                                 buildDeps = lib.buildDeps,
                                 entryPointPath = lib.entryPointPath,
                                 cratePath = lib.cratePath,
