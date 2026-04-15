@@ -13,6 +13,16 @@ _TARGET_TYPES = {
     "_build_script_run": "build"
 }
 
+_CRATE_TYPES = {
+    "rust_library": "lib",
+    "rust_shared_library": "cdylib",
+    "rust_static_library": "staticlib",
+    "rust_binary": "bin",
+    "rust_proc_macro": "proc-macro",
+    "rust_test": "test",
+    "_build_script_run": "N/A"
+}
+
 _DEFAULT_RUST_EDITION = "2024"
 
 _BIN_ENTRY_POINT = "main.rs"
@@ -246,6 +256,7 @@ def _get_properties(target, ctx, source_files, crate_info):
     properties["enabled.features"] = ",".join(crate_info.enabled_features)
     properties["features"] = ",".join(crate_info.features)
     properties["target.name"] = target.label.name
+    properties["crate_type"] = _CRATE_TYPES[ctx.rule.kind]
     properties["type"] = target_type
     properties["version"] = crate_info.version
     if target_type in ["bin", "lib"]:

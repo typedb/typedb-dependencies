@@ -32,6 +32,7 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.GITHUB_TYPEDB
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.MANIFEST_PROPERTIES_SUFFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_DEPS
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.CRATE_TYPE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.DEPS_PREFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.EDITION
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.ENABLED_FEATURES
@@ -40,10 +41,10 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Targe
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.NAME
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.PATH
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.REPO_PATH
-import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.WORKSPACE_NAME
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.TARGET_NAME
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.TYPE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.VERSION
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.WORKSPACE_NAME
 
 import picocli.CommandLine
 import java.io.File
@@ -310,6 +311,7 @@ class RustManifestSyncer : Callable<Unit> {
                         createSubConfig().apply {
                             this@createEntryPointSubConfig.set<Config>("lib", this)
                             set<String>("path", entryPointPath)
+                            set<List<String>>("crate-type", properties.crateTypes)
                         }
                     }
 
@@ -409,6 +411,7 @@ class RustManifestSyncer : Callable<Unit> {
                 val targetName: String,
                 val cratePath: String,
                 val type: Type,
+                val crateTypes: Collection<String>,
                 val enabledFeatures: Collection<String>,
                 val features: Collection<String>,
                 val version: String,
@@ -536,6 +539,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = props.getProperty(NAME),
                                 targetName = props.getProperty(TARGET_NAME),
                                 type = Type.of(props.getProperty(TYPE)),
+                                crateTypes = listOf(props.getProperty(CRATE_TYPE)),
                                 enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
                                 features = props.getProperty(FEATURES).split(",").filter { it.isNotBlank() },
                                 version = props.getProperty(VERSION),
@@ -562,6 +566,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = base.name,
                                 targetName = base.targetName,
                                 type = base.type,
+                                crateTypes = (base.crateTypes + properties.crateTypes).distinct(),
                                 enabledFeatures = (base.enabledFeatures + properties.enabledFeatures).distinct(),
                                 features = (base.features + properties.features).distinct(),
                                 version = base.version,
@@ -591,6 +596,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = first.cratePath.replace('/', '-'),
                                 targetName = first.targetName,
                                 type = first.type,
+                                crateTypes = first.crateTypes,
                                 enabledFeatures = first.enabledFeatures,
                                 features = first.features,
                                 version = first.version,
@@ -614,6 +620,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 name = lib.name,
                                 targetName = lib.targetName,
                                 type = lib.type,
+                                crateTypes = lib.crateTypes,
                                 enabledFeatures = lib.enabledFeatures,
                                 features = lib.features,
                                 version = lib.version,
@@ -644,6 +651,7 @@ class RustManifestSyncer : Callable<Unit> {
 
             private object Keys {
                 const val BUILD_DEPS = "build.deps"
+                const val CRATE_TYPE = "crate_type"
                 const val DEPS_PREFIX = "deps"
                 const val EDITION = "edition"
                 const val ENTRY_POINT_PATH = "entry.point.path"
