@@ -62,6 +62,13 @@ register_toolchains("@llvm_toolchain//:all", dev_dependency = True)
 
 # Rust
 bazel_dep(name = "rules_rust", version = "0.56.0")
+git_override(
+    module_name = "rules_rust",
+    remote = "https://github.com/bazelbuild/rules_rust",
+    tag = "0.56.0",
+    patches = ["//patches:rules_rust.patch"],
+)
+
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2024",
