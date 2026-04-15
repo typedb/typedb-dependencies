@@ -220,9 +220,13 @@ class RustManifestSyncer : Callable<Unit> {
                 } else {
                     throw RuntimeException("Could not find directory named '$TESTS_DIR' or '$BENCHES_DIR' for Bazel test target '${tp.name}'.");
                 }
-                val parent = nonTestProperties.values.filter { it.path.parentFile.toPath().equals(path.parent) };
+                var parent = nonTestProperties.values.filter { it.path.parentFile.toPath().equals(path.parent) };
+                if (parent.size > 1) {
+                    logger.debug { "Found ${parent.size} parents to attach test '${tp.name}' to, discarding binaries..." }
+                    parent = parent.filter { it.type != TargetProperties.Type.BIN };
+                }
                 if (parent.size != 1) {
-                    throw RuntimeException("Found '${parent.size}' parents to attach test '${tp.name}' to.")
+                    throw RuntimeException("Found ${parent.size} parents to attach test '${tp.name}' to: ${parent.map { it.name }}.")
                 }
 
                 if (isTest) {
