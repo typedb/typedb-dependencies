@@ -43,11 +43,11 @@ def _native_artifact_files_impl(ctx):
                     # Can't use .format() because the result string will still have the unresolved parameter {version}
                     artifact_name = artifact.artifact_name.replace("{platform}", platform).replace("{ext}", ext)
 
-                    version = artifact.tag if artifact.tag != None else artifact.commit
+                    version = artifact.tag if artifact.tag else artifact.commit
                     if artifact.private == True:
-                        repository_url = private_artifact_sources.release if artifact.tag != None else private_artifact_sources.snapshot
+                        repository_url = private_artifact_sources.release if artifact.tag else private_artifact_sources.snapshot
                     else:
-                        repository_url = public_artifact_sources.release if artifact.tag != None else public_artifact_sources.snapshot
+                        repository_url = public_artifact_sources.release if artifact.tag else public_artifact_sources.snapshot
                     artifact_name = artifact_name.format(version = version)
                     http_file(
                         name = target_name,
