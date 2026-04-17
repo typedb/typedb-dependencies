@@ -62,6 +62,7 @@ register_toolchains("@llvm_toolchain//:all", dev_dependency = True)
 
 # Rust
 bazel_dep(name = "rules_rust", version = "0.56.0")
+# Backport a bug fix from rules_rust 0.58 (bazelbuild/rules_rust#3251)
 git_override(
     module_name = "rules_rust",
     remote = "https://github.com/bazelbuild/rules_rust",
