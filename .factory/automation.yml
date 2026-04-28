@@ -24,7 +24,7 @@ build:
         owner: typedb
         branch: [ master, development, fix-deploy-maven ]
       image: typedb-ubuntu-22.04
-      dependencies: [ build ]
+      dependencies: []
       command: |
         # export DEPLOY_MAVEN_USERNAME=$REPO_TYPEDB_USERNAME
         # export DEPLOY_MAVEN_PASSWORD=$REPO_TYPEDB_PASSWORD
