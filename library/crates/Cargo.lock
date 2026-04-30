@@ -5572,7 +5572,6 @@ dependencies = [
  "axum-server",
  "base64",
  "bincode",
- "bytes",
  "cbindgen",
  "chrono",
  "chrono-tz",

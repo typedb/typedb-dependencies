@@ -17,7 +17,7 @@ def _rust_tonic_compile_impl(ctx):
             "OUT_DIR": outputs[0].dirname,
             "PROTOC": ctx.attr.protoc.files.to_list()[0].path,
             "PROTOS": ";".join([src.path for src in protos]),
-            "PROTOS_ROOT": ctx.attr.srcs[0][ProtoInfo].proto_source_root,
+            "PROTOS_ROOT": ";".join(depset([src[ProtoInfo].proto_source_root for src in ctx.attr.srcs]).to_list()),
         },
         mnemonic = "RustTonicCompileAction"
     )

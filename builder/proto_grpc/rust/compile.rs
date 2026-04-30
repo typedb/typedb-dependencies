@@ -8,10 +8,11 @@ fn main() -> std::io::Result<()> {
     let protos_raw = env::var("PROTOS").expect("PROTOS environment variable is not set");
     let protos: Vec<&str> = protos_raw.split(";").filter(|&str| !str.is_empty()).collect();
 
+    let roots_raw = env::var("PROTOS_ROOT").expect("PROTOS_ROOT environment variable is not set");
+    let roots: Vec<&str> = roots_raw.split(";").filter(|&str| !str.is_empty()).collect();
+
     tonic_build::configure()
         .server_mod_attribute(".", "#[allow(non_camel_case_types)]")
         .client_mod_attribute(".", "#[allow(non_camel_case_types)]")
-        .compile_protos(&protos, &[
-            env::var("PROTOS_ROOT").expect("PROTOS_ROOT environment variable is not set")
-        ])
+        .compile_protos(&protos, &roots)
 }

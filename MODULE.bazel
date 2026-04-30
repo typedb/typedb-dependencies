@@ -179,6 +179,16 @@ crate.annotation(
     crate = "librocksdb-sys",
     rustc_flags = ["-C", "opt-level=3"],
 )
+crate.annotation(
+    crate = "protobuf-build",
+    patches = ["//patches:protobuf-build-bazel-include.patch"],
+    data_glob = ["include/**"],
+)
+crate.annotation(
+    crate = "raft-proto",
+    build_script_data = ["@crates__protobuf-build-0.14.1//:protobuf_build"],
+    build_script_env = {"PROTOBUF_BUILD_INCLUDE": "external/rules_rust++crate+crates__protobuf-build-0.14.1/include"},
+)
 use_repo(crate, "crates")
 
 # ===========================================================
