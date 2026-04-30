@@ -181,7 +181,7 @@ crate.annotation(
 )
 crate.annotation(
     crate = "protobuf-build",
-    patches = ["//patches:protobuf-build-bazel-include.patch"],
+    patches = ["//patches:protobuf-build-include.patch", "//patches:protobuf-build-protoc.patch"],
     data_glob = ["include/**"],
 )
 crate.annotation(
