@@ -186,12 +186,14 @@ crate.annotation(
 )
 crate.annotation(
     crate = "raft-proto",
-    build_script_data = ["@crates__protobuf-build-0.14.1//:protobuf_build"],
+    build_script_data = [
+        "@crates__protobuf-build-0.14.1//:protobuf_build",
+        "@@protobuf+//:protoc",
+    ],
     build_script_env = {
         "PROTOBUF_BUILD_INCLUDE": "external/rules_rust++crate+crates__protobuf-build-0.14.1/include",
-        "PROTOC": "protoc", # not hermetic: requires protoc
+        "PROTOC": "$(execpath @@protobuf+//:protoc)",
     },
-    build_script_use_default_shell_env = True, # not hermetic: requires for protoc
 )
 use_repo(crate, "crates")
 
