@@ -2,7 +2,7 @@
 +++ src/lib.rs	2026-04-30 09:49:54.424228011 +0000
 @@ -53,11 +53,28 @@
      }
-
+ 
      pub fn include_google_protos(&mut self) -> &mut Self {
 -        let path = format!("{}/include", std::env!("CARGO_MANIFEST_DIR"));
 +        let compile_time_path = format!("{}/include", std::env!("CARGO_MANIFEST_DIR"));
@@ -16,7 +16,7 @@
          self.includes.push(path);
          self
      }
-
+ 
 +    fn resolve_protobuf_include() -> Option<String> {
 +        // For Bazel sandboxed builds where the compile-time CARGO_MANIFEST_DIR no longer
 +        // exists at build script runtime: resolve PROTOBUF_BUILD_INCLUDE relative to execroot.
@@ -30,40 +30,3 @@
      pub fn generate(&self) {
          assert!(!self.files.is_empty(), "No files specified for generation");
          self.prep_out_dir();
---- src/protobuf_impl.rs	2026-04-30 12:47:19.869489008 +0000
-+++ src/protobuf_impl.rs	2026-04-30 12:47:46.781605006 +0000
-@@ -24,6 +24,11 @@
-         return s;
-     }
-
-+    // Bazel sandboxed builds: scan the execroot for protoc
-+    if let Some(s) = find_bazel_protoc() {
-+        return s;
-+    }
-+
-     // The bundled protoc should always match the version
-     let protoc_bin_name = match (env::consts::OS, env::consts::ARCH) {
-         ("linux", "x86") => "protoc-linux-x86_32",
-@@ -40,6 +45,22 @@
-     bin_path.display().to_string()
- }
-
-+fn find_bazel_protoc() -> Option<String> {
-+    let out_dir = env::var("OUT_DIR").ok()?;
-+    let execroot = &out_dir[..out_dir.find("/bazel-out/")?];
-+    // Scan bazel-out for protoc binary under the protobuf+ external repo
-+    for entry in std::fs::read_dir(format!("{}/bazel-out", execroot)).ok()? {
-+        let config_dir = entry.ok()?.path();
-+        let candidate = config_dir.join("bin/external/protobuf+/protoc");
-+        if candidate.is_file() {
-+            if let Ok(s) = check_protoc_version(candidate.to_str()?) {
-+                return Some(s);
-+            }
-+        }
-+    }
-+    None
-+}
-+
- fn check_protoc_version(protoc: &str) -> Result<String, ()> {
-     let ver_re = Regex::new(r"([0-9]+)\.([0-9]+)(\.[0-9])?").unwrap();
-     let output = Command::new(protoc).arg("--version").output();
