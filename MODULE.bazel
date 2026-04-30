@@ -191,6 +191,7 @@ crate.annotation(
         "PROTOBUF_BUILD_INCLUDE": "external/rules_rust++crate+crates__protobuf-build-0.14.1/include",
         "PROTOC": "protoc", # not hermetic: requires protoc
     },
+    build_script_use_default_shell_env = True, # not hermetic: requires for protoc
 )
 use_repo(crate, "crates")
 
