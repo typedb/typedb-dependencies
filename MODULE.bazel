@@ -103,6 +103,9 @@ bazel_dep(name = "rules_java", version = "8.6.2")
 # C/C++
 bazel_dep(name = "rules_cc", version = "0.0.17")
 
+# .NET (used by //builder/swig:csharp.bzl)
+bazel_dep(name = "rules_dotnet", version = "0.14.0")
+
 # ===========================================================
 # Code generation
 # ===========================================================
