@@ -14,8 +14,6 @@ def _expand_label(name):
         name = name + ":" + name[name.rfind("/")+1:]
     return name
 
-
-
 def native_java_libraries(
         name,
         deps = [],
@@ -119,32 +117,41 @@ def native_dep_for_host_platform(name):
          "//conditions:default": ["INVALID"],
      })
 
-def typedb_java_test(name, server_artifacts, console_artifacts = {},
+def typedb_java_test(name, server_artifacts = {}, console_artifacts = {},
                       native_libraries_deps = [], deps = [], classpath_resources = [], data = [], args = [], **kwargs):
-    native_server_artifact_paths, native_server_artifact_labels = native_artifact_paths_and_labels(server_artifacts)
+    native_server_artifact_paths, native_server_artifact_labels = native_artifact_paths_and_labels(server_artifacts, mandatory = False)
     native_console_artifact_paths, native_console_artifact_labels = native_artifact_paths_and_labels(console_artifacts, mandatory = False)
     native_dependencies = get_native_dependencies(native_libraries_deps)
 
+    server_data = (select(native_server_artifact_labels) if native_server_artifact_labels else [])
+    console_data = (select(native_console_artifact_labels) if native_console_artifact_labels else [])
+    server_args = ((["--server"] + select(native_server_artifact_paths)) if native_server_artifact_paths else [])
+    console_args = ((["--console"] + select(native_console_artifact_paths)) if native_console_artifact_paths else [])
     native.java_test(
         name = name,
         deps = deps + native_dependencies,
         classpath_resources = depset(classpath_resources + ["@typedb_dependencies//builder/java:logback"]).to_list(),
-        data = data + select(native_server_artifact_labels) + (select(native_console_artifact_labels) if native_console_artifact_labels else []),
-        args = ["--server"] + select(native_server_artifact_paths) + ((["--console"] + select(native_console_artifact_paths)) if native_console_artifact_paths else []) + args,
+        data = server_data + console_data + data,
+        args = server_args + console_args + args,
         **kwargs
     )
 
-def typedb_kt_test(name, server_artifacts, console_artifacts = {},
+def typedb_kt_test(name, server_artifacts = {}, console_artifacts = {},
                         native_libraries_deps = [], deps = [], data = [], args = [], **kwargs):
-    native_server_artifact_paths, native_server_artifact_labels = native_artifact_paths_and_labels(server_artifacts)
+    native_server_artifact_paths, native_server_artifact_labels = native_artifact_paths_and_labels(server_artifacts, mandatory = False)
     native_console_artifact_paths, native_console_artifact_labels = native_artifact_paths_and_labels(console_artifacts, mandatory = False)
     native_dependencies = get_native_dependencies(native_libraries_deps)
+
+    server_data = (select(native_server_artifact_labels) if native_server_artifact_labels else [])
+    console_data = (select(native_console_artifact_labels) if native_console_artifact_labels else [])
+    server_args = ((["--server"] + select(native_server_artifact_paths)) if native_server_artifact_paths else [])
+    console_args = ((["--console"] + select(native_console_artifact_paths)) if native_console_artifact_paths else [])
 
     kt_jvm_test(
         name = name,
         deps = deps + native_dependencies,
-        data = data + select(native_server_artifact_labels) + (select(native_console_artifact_labels) if native_console_artifact_labels else []),
-        args = ["--server"] + select(native_server_artifact_paths) + ((["--console"] + select(native_console_artifact_paths)) if native_console_artifact_paths else []) + args,
+        data = server_data + console_data + data,
+        args = server_args + console_args + args,
         **kwargs
     )
 
@@ -153,7 +160,6 @@ def get_native_dependencies(native_libraries_deps):
     for dep in native_libraries_deps:
        native_dependencies = native_dependencies + native_dep_for_host_platform(dep)
     return native_dependencies
-
 
 def native_artifact_paths_and_labels(native_artifacts, mandatory = True):
     if native_artifacts:
@@ -167,7 +173,6 @@ def native_artifact_paths_and_labels(native_artifacts, mandatory = True):
         fail("Mandatory artifacts weren't available.")
     else:
         return [], []
-
 
 def native_typedb_artifact(name, native_artifacts, output, **kwargs):
     native.genrule(
