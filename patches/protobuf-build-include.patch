@@ -1,0 +1,32 @@
+--- src/lib.rs	2026-04-30 09:49:31.092228000 +0000
++++ src/lib.rs	2026-04-30 09:49:54.424228011 +0000
+@@ -53,11 +53,28 @@
+     }
+ 
+     pub fn include_google_protos(&mut self) -> &mut Self {
+-        let path = format!("{}/include", std::env!("CARGO_MANIFEST_DIR"));
++        let compile_time_path = format!("{}/include", std::env!("CARGO_MANIFEST_DIR"));
++        let path = if std::path::Path::new(&compile_time_path).is_dir() {
++            compile_time_path
++        } else if let Some(p) = Self::resolve_protobuf_include() {
++            p
++        } else {
++            compile_time_path
++        };
+         self.includes.push(path);
+         self
+     }
+ 
++    fn resolve_protobuf_include() -> Option<String> {
++        // For Bazel sandboxed builds where the compile-time CARGO_MANIFEST_DIR no longer
++        // exists at build script runtime: resolve PROTOBUF_BUILD_INCLUDE relative to execroot.
++        let rel = std::env::var("PROTOBUF_BUILD_INCLUDE").ok()?;
++        let out_dir = std::env::var("OUT_DIR").ok()?;
++        let execroot = &out_dir[..out_dir.find("/bazel-out/")?];
++        let abs = format!("{}/{}", execroot, rel);
++        if std::path::Path::new(&abs).is_dir() { Some(abs) } else { None }
++    }
++
+     pub fn generate(&self) {
+         assert!(!self.files.is_empty(), "No files specified for generation");
+         self.prep_out_dir();

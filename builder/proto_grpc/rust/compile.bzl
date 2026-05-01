@@ -17,7 +17,9 @@ def _rust_tonic_compile_impl(ctx):
             "OUT_DIR": outputs[0].dirname,
             "PROTOC": ctx.attr.protoc.files.to_list()[0].path,
             "PROTOS": ";".join([src.path for src in protos]),
-            "PROTOS_ROOT": ctx.attr.srcs[0][ProtoInfo].proto_source_root,
+            "PROTOS_ROOT": ";".join(depset(
+                ctx.attr.includes if ctx.attr.includes else [src[ProtoInfo].proto_source_root for src in ctx.attr.srcs]
+            ).to_list()),
         },
         mnemonic = "RustTonicCompileAction"
     )
@@ -36,6 +38,10 @@ rust_tonic_compile = rule(
             mandatory = True,
             allow_empty = False,
             doc = "The Protobuf package names. Each package name corresponds to a single output file."
+        ),
+        "includes": attr.string_list(
+            default = [],
+            doc = "Additional proto include paths, relative to the workspace root. When provided, overrides auto-detected proto_source_root.",
         ),
         "protoc": attr.label(
             default = "@com_google_protobuf//:protoc",

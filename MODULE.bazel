@@ -179,6 +179,22 @@ crate.annotation(
     crate = "librocksdb-sys",
     rustc_flags = ["-C", "opt-level=3"],
 )
+crate.annotation(
+    crate = "protobuf-build",
+    patches = ["//patches:protobuf-build-include.patch", "//patches:protobuf-build-protoc.patch"],
+    data_glob = ["include/**"],
+)
+crate.annotation(
+    crate = "raft-proto",
+    build_script_data = [
+        "@crates__protobuf-build-0.14.1//:protobuf_build",
+        "@@protobuf+//:protoc",
+    ],
+    build_script_env = {
+        "PROTOBUF_BUILD_INCLUDE": "external/rules_rust++crate+crates__protobuf-build-0.14.1/include",
+        "PROTOC": "$(execpath @@protobuf+//:protoc)",
+    },
+)
 use_repo(crate, "crates")
 
 # ===========================================================
@@ -315,7 +331,7 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "10c8e442f0507153125b7e3ab5005da8100a4d23",
+    commit = "6c81a5180ed94a11c989e06a4ff8215df6da163e",
 )
 
 # ===========================================================

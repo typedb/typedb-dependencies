@@ -4,7 +4,7 @@
 
 load("//tool/checkstyle:rules.bzl", "checkstyle_test")
 
-exports_files(["rules_rust.patch"])
+exports_files(["rules_rust.patch", "protobuf-build-bazel-include.patch"])
 
 checkstyle_test(
     name = "checkstyle",
