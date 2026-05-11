@@ -191,6 +191,12 @@ def swig_csharp(name, native_lib_name, lib, namespace, nullable_context, target_
             srcs = [swig_wrapper_name],
             linkshared = True,
             linkopts = select({
+                "@typedb_bazel_distribution//platform:is_mac": [
+                    "-framework", "Security",
+                    "-framework", "CoreFoundation",
+                    "-framework", "SystemConfiguration",
+                    "-framework", "IOKit",
+                ],
                 # TODO: move http certificate/encryption libraries into arguments
                 "@typedb_bazel_distribution//platform:is_windows": ["ntdll.lib", "secur32.lib", "crypt32.lib", "ncrypt.lib"],
                 "//conditions:default": [],
