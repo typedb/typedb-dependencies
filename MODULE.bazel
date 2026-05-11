@@ -103,6 +103,9 @@ bazel_dep(name = "rules_java", version = "8.6.2")
 # C/C++
 bazel_dep(name = "rules_cc", version = "0.0.17")
 
+# .NET (used by //builder/swig:csharp.bzl)
+bazel_dep(name = "rules_dotnet", version = "0.14.0")
+
 # ===========================================================
 # Code generation
 # ===========================================================
@@ -331,7 +334,7 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "6c81a5180ed94a11c989e06a4ff8215df6da163e",
+    commit = "c26d9469c82a58c65dda7001670862482a153ef4",
 )
 
 # ===========================================================
