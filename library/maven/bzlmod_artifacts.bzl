@@ -265,7 +265,7 @@ MAVEN_ARTIFACTS = [
     # TypeDB/Vaticle artifacts (used by typedb-cloud)
     "com.vaticle.typedb:typedb-runner:2.28.3",
     "com.vaticle.typedb:typedb-cloud-runner:2.28.3",
-    "com.vaticle.typedb:typedb-common:0.0.0-56ed57603e67103d0a371721db2d15e7e727ccac",
+    "com.vaticle.typedb:typedb-common:0.0.0-23578fb766fbf78b2327a59eb9ce6d00ced1623f",
     "com.vaticle.typedb:typedb-driver:2.28.0-rc0",
     "com.vaticle.typeql:typeql-lang:2.28.0",
 
