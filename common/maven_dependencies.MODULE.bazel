@@ -1,0 +1,4 @@
+maven = use_extension("//library/maven:maven_extension.bzl", "maven")
+maven.artifacts(artifacts = [
+    "org.yaml:snakeyaml",  # //common/java:typedb-common
+])

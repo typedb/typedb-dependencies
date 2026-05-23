@@ -1,0 +1,8 @@
+maven = use_extension("//library/maven:maven_extension.bzl", "maven")
+maven.artifacts(artifacts = [
+    "com.electronwill.night-config:core",        # //builder/rust/cargo:manifest-writer
+    "com.electronwill.night-config:toml",        # //builder/rust/cargo:manifest-writer
+    "info.picocli:picocli",                      # //builder/rust/cargo:manifest-writer, //builder/antlr:grammar-adapter
+    "org.jetbrains.compose.compiler:compiler",   # //builder/compose:compiler_plugin
+    "org.zeroturnaround:zt-exec",                # //builder/rust/cargo:manifest-writer
+])
