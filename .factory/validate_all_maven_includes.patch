@@ -1,0 +1,15 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+index c565900..c9609ea 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -159,10 +159,6 @@ bazel_dep(name = "rules_license", version = "1.0.0")
+ bazel_dep(name = "rules_shell", version = "0.3.0")
+ 
+ maven = use_extension("//library/maven:maven_extension.bzl", "maven")
+-include("//tool:maven_dependencies.MODULE.bazel")
+-include("//builder:maven_dependencies.MODULE.bazel")
+-include("//factory:maven_dependencies.MODULE.bazel")
+-include("//common:maven_dependencies.MODULE.bazel")
+ use_repo(maven, "maven")
+ 
+ # Rust crates
