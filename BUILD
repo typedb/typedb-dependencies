@@ -9,6 +9,7 @@ checkstyle_test(
     include = glob(["*", ".factory/*"]),
     exclude = glob([
         "*.md",
+        ".factory/validate_all_maven_includes.patch"
     ]) + [
         ".bazelversion",
         ".bazel-remote-cache.rc",
