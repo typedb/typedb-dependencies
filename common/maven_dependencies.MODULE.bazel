@@ -3,6 +3,6 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 maven = use_extension("//library/maven:maven_extension.bzl", "maven")
-maven.artifacts(artifacts = [
+maven.namespace(name = "typedb_dependencies_maven", artifacts = [
     "org.yaml:snakeyaml",  # //common/java:typedb-common
 ])

@@ -3,7 +3,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 maven = use_extension("//library/maven:maven_extension.bzl", "maven")
-maven.artifacts(artifacts = [
+maven.namespace(name = "typedb_dependencies_maven", artifacts = [
     "com.electronwill.night-config:core",        # //builder/rust/cargo:manifest-writer
     "com.electronwill.night-config:toml",        # //builder/rust/cargo:manifest-writer
     "info.picocli:picocli",                      # //builder/rust/cargo:manifest-writer, //builder/antlr:grammar-adapter

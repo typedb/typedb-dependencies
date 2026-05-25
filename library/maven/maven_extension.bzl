@@ -59,7 +59,7 @@ def _maven_impl(module_ctx):
 # Usage in MODULE.bazel:
 #
 #   maven = use_extension("@typedb_dependencies//library/maven:maven_extension.bzl", "maven")
-#   maven.artifacts(artifacts = ["io.grpc:grpc-api", "com.google.guava:guava"])
+#   maven.namespace(name = "typedb_dependencies_maven", artifacts = ["io.grpc:grpc-api", "com.google.guava:guava"])
 #   use_repo(maven, "maven")
 #
 # Multiple maven.artifacts(...) calls are merged. Omitting all tags includes everything
