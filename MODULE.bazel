@@ -339,7 +339,7 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "c26d9469c82a58c65dda7001670862482a153ef4",
+    commit = "b676760fcad45e35f4acb420322ef674404ffe70",
 )
 
 # ===========================================================
