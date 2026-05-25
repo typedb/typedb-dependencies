@@ -258,16 +258,16 @@
   "moduleExtensions": {
     "//library/maven:maven_extension.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "xYfcV5GCvcArBk+YmbDDOlMr6efbtclgFFOFQZSmCJQ=",
-        "usagesDigest": "GD8WWDyl5JpTrILXbJy2Aj9ll4pyhkO/BOc89gMMfUg=",
+        "bzlTransitiveDigest": "cTg5+JwiIgzF+hfytOujmT4cL3esuByuJOdHCN4u2JI=",
+        "usagesDigest": "Kza+x+DbYsdero1irdFPg/aE4C5W69uxXpUfcERxn3g=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
-          "maven": {
+          "typedb_maven": {
             "repoRuleId": "@@rules_jvm_external+//private/rules:coursier.bzl%coursier_fetch",
             "attributes": {
-              "user_provided_name": "maven",
+              "user_provided_name": "typedb_maven",
               "artifacts": [
                 "{ \"group\": \"com.eclipsesource.minimal-json\", \"artifact\": \"minimal-json\", \"version\": \"0.9.5\" }",
                 "{ \"group\": \"com.electronwill.night-config\", \"artifact\": \"core\", \"version\": \"3.6.5\" }",

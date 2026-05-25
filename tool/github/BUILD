@@ -12,10 +12,10 @@ kt_jvm_library(
     deps = [
         "@typedb_bazel_distribution//common",
         "@typedb_bazel_distribution//common/shell",
-        "@maven//:org_zeroturnaround_zt_exec",
-        "@maven//:commons_io_commons_io",
-        "@maven//:info_picocli_picocli",
-        "@maven//:org_kohsuke_github_api",
+        "@typedb_maven//:org_zeroturnaround_zt_exec",
+        "@typedb_maven//:commons_io_commons_io",
+        "@typedb_maven//:info_picocli_picocli",
+        "@typedb_maven//:org_kohsuke_github_api",
     ],
     visibility = ["//visibility:private"],
 )

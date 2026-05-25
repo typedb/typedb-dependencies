@@ -25,7 +25,7 @@ java_library(
         allow_empty = True,
     ),
     deps = [
-        "@maven//:org_yaml_snakeyaml",
+        "@typedb_maven//:org_yaml_snakeyaml",
     ],
     visibility = ["//visibility:public"],
     tags = [

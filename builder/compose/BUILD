@@ -12,7 +12,7 @@ kt_compiler_plugin(
     id = "jetbrains.compose.compiler",
     target_embedded_compiler = True,
     deps = [
-        "@maven//:org_jetbrains_compose_compiler_compiler",
+        "@typedb_maven//:org_jetbrains_compose_compiler_compiler",
     ],
      visibility = ["//visibility:public"],
 )

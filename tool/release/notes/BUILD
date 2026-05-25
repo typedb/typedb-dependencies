@@ -14,9 +14,9 @@ kt_jvm_binary(
     main_class = "com.typedb.dependencies.tool.release.notes.NotesValidateKt",
     deps = [
         "//tool/common:version",
-        "@maven//:com_eclipsesource_minimal_json_minimal_json",
-        "@maven//:com_google_http_client_google_http_client",
-        "@maven//:org_zeroturnaround_zt_exec",
+        "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json",
+        "@typedb_maven//:com_google_http_client_google_http_client",
+        "@typedb_maven//:org_zeroturnaround_zt_exec",
     ],
 )
 
@@ -26,9 +26,9 @@ kt_jvm_binary(
     main_class = "com.typedb.dependencies.tool.release.notes.NotesCreateKt",
     deps = [
         "//tool/common:version",
-        "@maven//:com_eclipsesource_minimal_json_minimal_json",
-        "@maven//:com_google_http_client_google_http_client",
-        "@maven//:org_zeroturnaround_zt_exec",
+        "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json",
+        "@typedb_maven//:com_google_http_client_google_http_client",
+        "@typedb_maven//:org_zeroturnaround_zt_exec",
     ],
 )
 

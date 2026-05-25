@@ -14,7 +14,7 @@ import java.nio.file.Paths
 
 fun main() {
     val baseDir = Paths.get(System.getenv("BUILD_WORKSPACE_DIRECTORY"))
-    val snapshotCommand = listOf("bazel", "query", "kind(alias, @maven//...)")
+    val snapshotCommand = listOf("bazel", "query", "kind(alias, @typedb_maven//...)")
     val snapshotFile = baseDir.resolve("dependencies").resolve("maven").resolve("artifacts.snapshot")
 
     println("-------------------------")

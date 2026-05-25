@@ -25,11 +25,11 @@ kt_jvm_library(
         "@typedb_bazel_distribution//common/shell",
         "@typedb_bazel_distribution//common/util",
 
-        "@maven//:com_eclipsesource_minimal_json_minimal_json",
-        "@maven//:com_electronwill_night_config_core",
-        "@maven//:com_electronwill_night_config_toml",
-        "@maven//:info_picocli_picocli",
-        "@maven//:org_zeroturnaround_zt_exec",
+        "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json",
+        "@typedb_maven//:com_electronwill_night_config_core",
+        "@typedb_maven//:com_electronwill_night_config_toml",
+        "@typedb_maven//:info_picocli_picocli",
+        "@typedb_maven//:org_zeroturnaround_zt_exec",
     ]
 )
 

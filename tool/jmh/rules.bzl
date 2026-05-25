@@ -12,7 +12,7 @@ def java_jmh_benchmarks(name, srcs, deps=[], tags=[], plugins=[], **kwargs):
     plugin_name = "_{}_jmh_annotation_processor".format(name)
     native.java_plugin(
         name = plugin_name,
-        deps = ["@maven//:org_openjdk_jmh_jmh_generator_annprocess"],
+        deps = ["@typedb_maven//:org_openjdk_jmh_jmh_generator_annprocess"],
         processor_class = "org.openjdk.jmh.generators.BenchmarkProcessor",
         visibility = ["//visibility:private"],
         tags = tags,
@@ -21,7 +21,7 @@ def java_jmh_benchmarks(name, srcs, deps=[], tags=[], plugins=[], **kwargs):
         name = name,
         srcs = srcs,
         main_class = "org.openjdk.jmh.Main",
-        deps = deps + ["@maven//:org_openjdk_jmh_jmh_core"],
+        deps = deps + ["@typedb_maven//:org_openjdk_jmh_jmh_core"],
         plugins = plugins + [plugin_name],
         tags = tags,
         **kwargs

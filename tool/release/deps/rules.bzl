@@ -65,7 +65,7 @@ def release_validate_deps(name, **kwargs):
         main_class = "com.typedb.dependencies.tool.release.deps." + standard_name + "_genKt",
         srcs = [target_name],
         deps = [
-            "@maven//:com_eclipsesource_minimal_json_minimal_json"
+            "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json"
         ],
     )
 
@@ -86,8 +86,8 @@ def release_validate_nodejs_deps(
                 package_json,
             ],
             deps = [
-                "@maven//:com_eclipsesource_minimal_json_minimal_json",
-                "@maven//:com_google_http_client_google_http_client",
+                "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json",
+                "@typedb_maven//:com_google_http_client_google_http_client",
             ],
             args = ["$(location {})".format(package_json), "$(location {})".format(version_file)] + tagged_deps,
             tags = ["manual"],
@@ -110,8 +110,8 @@ def release_validate_python_deps(
                 requirements,
             ],
             deps = [
-                "@maven//:com_eclipsesource_minimal_json_minimal_json",
-                "@maven//:com_google_http_client_google_http_client",
+                "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json",
+                "@typedb_maven//:com_google_http_client_google_http_client",
             ],
             args = ["$(location {})".format(requirements), "$(location {})".format(version_file)] + tagged_deps,
             tags = ["manual"],

@@ -12,8 +12,8 @@ kt_jvm_binary(
     srcs = ["DependencyAnalysis.kt"],
     main_class = "com.typedb.dependencies.factory.analysis.DependencyAnalysisKt",
     deps = [
-        "@maven//:com_eclipsesource_minimal_json_minimal_json",
-        "@maven//:org_zeroturnaround_zt_exec",
+        "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json",
+        "@typedb_maven//:org_zeroturnaround_zt_exec",
     ],
 )
 

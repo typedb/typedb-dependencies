@@ -3,7 +3,7 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 maven = use_extension("//library/maven:maven_extension.bzl", "maven")
-maven.namespace(name = "typedb_dependencies_maven", artifacts = [
+maven.namespace(name = "typedb_maven", artifacts = [
     "com.eclipsesource.minimal-json:minimal-json",  # //factory/analysis:dependency-analysis
     "org.zeroturnaround:zt-exec",                   # //factory/analysis:dependency-analysis
 ])
