@@ -111,8 +111,8 @@ bazel_dep(name = "rules_dotnet", version = "0.14.0")
 # ===========================================================
 
 # Protobuf / gRPC
-bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "protobuf", version = "29.3", repo_name = "com_google_protobuf")
+#bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "protobuf", version = "35.0", repo_name = "com_google_protobuf")
 
 # CxxBridge
 http_file(
