@@ -94,7 +94,7 @@ bazel_dep(name = "rules_kotlin", version = "2.0.0", repo_name = "io_bazel_rules_
 register_toolchains("@io_bazel_rules_kotlin//kotlin/internal:default_toolchain")
 
 # Python
-bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "rules_python", version = "2.0.0")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(is_default = True, python_version = "3.11")
 
