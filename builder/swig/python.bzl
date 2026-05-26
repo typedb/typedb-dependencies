@@ -156,7 +156,7 @@ def swig_python(*, name, lib, shared_lib_name=None, import_name=None, python_hea
         lib = lib,
         python_headers = python_headers,
         libpython = select({
-            "@typedb_bazel_distribution//platform:is_linux": libpython,
+            "@typedb_bazel_distribution//platform:is_linux": None,
             "@typedb_bazel_distribution//platform:is_mac": None,
             "@typedb_bazel_distribution//platform:is_windows": libpython,
         }),
