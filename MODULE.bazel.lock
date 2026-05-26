@@ -260,7 +260,7 @@
   "moduleExtensions": {
     "//library/maven:maven_extension.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "cTg5+JwiIgzF+hfytOujmT4cL3esuByuJOdHCN4u2JI=",
+        "bzlTransitiveDigest": "IpHT8ELY4NYAu4/ZrlB9T41Pl90PKHy4aWpZECETZUc=",
         "usagesDigest": "Kza+x+DbYsdero1irdFPg/aE4C5W69uxXpUfcERxn3g=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
