@@ -7,7 +7,7 @@ load("@rules_jvm_external//private/rules:coursier.bzl", "coursier_fetch")
 load(":bzlmod_artifacts.bzl", "MAVEN_ARTIFACTS", "MAVEN_EXCLUDED_ARTIFACTS", "MAVEN_REPOSITORIES")
 
 _maven_namespace_tag = tag_class(attrs = {
-    "name": attr.string(default = "maven"),
+    "name": attr.string(default = "typedb_maven"),
     "artifacts": attr.string_list(),
 })
 
@@ -36,7 +36,7 @@ def _maven_impl(module_ctx):
                 resolved_by_name[name].append(artifacts_dict[a])
 
     if not resolved_by_name:
-        resolved_by_name["maven"] = MAVEN_ARTIFACTS
+        resolved_by_name["typedb_maven"] = MAVEN_ARTIFACTS
 
     excluded_artifacts = parse.parse_exclusion_spec_list(MAVEN_EXCLUDED_ARTIFACTS)
     excluded_artifacts_json = [_json.write_exclusion_spec(a) for a in excluded_artifacts]
