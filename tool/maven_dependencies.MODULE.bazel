@@ -1,0 +1,20 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+maven = use_extension("//library/maven:maven_extension.bzl", "maven")
+maven.namespace(name = "typedb_maven", artifacts = [
+    "com.eclipsesource.minimal-json:minimal-json",  # //tool/ide:rust_sync, //tool/release/notes
+    "com.electronwill.night-config:core",           # //tool/ide:rust_sync
+    "com.electronwill.night-config:toml",           # //tool/ide:rust_sync
+    "com.fasterxml.jackson.core:jackson-core",      # //tool/release/version:bump
+    "com.fasterxml.jackson.core:jackson-databind",  # //tool/release/version:bump
+    "com.google.http-client:google-http-client",    # //tool/release/notes
+    "com.vdurmont:semver4j",                        # //tool/release/version:bump
+    "commons-io:commons-io",                        # //tool/github:open-pr, //tool/release/version:bump
+    "info.picocli:picocli",                         # //tool/ide:rust_sync, //tool/github:open-pr, //tool/release/version:bump
+    "org.kohsuke:github-api",                       # //tool/github:open-pr
+    "org.openjdk.jmh:jmh-core",                    # //tool/jmh
+    "org.openjdk.jmh:jmh-generator-annprocess",    # //tool/jmh
+    "org.zeroturnaround:zt-exec",                   # //tool/ide:rust_sync, //tool/github:open-pr, //tool/release/notes, //tool/release/version:bump
+])

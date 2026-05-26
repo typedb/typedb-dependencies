@@ -16,6 +16,7 @@ http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
 bazel_dep(name = "bazel_features", version = "1.21.0")
+bazel_dep(name = "package_metadata", version = "0.0.10")
 
 # ===========================================================
 # Build dependencies
@@ -93,7 +94,7 @@ bazel_dep(name = "rules_kotlin", version = "2.0.0", repo_name = "io_bazel_rules_
 register_toolchains("@io_bazel_rules_kotlin//kotlin/internal:default_toolchain")
 
 # Python
-bazel_dep(name = "rules_python", version = "1.0.0")
+bazel_dep(name = "rules_python", version = "2.0.0")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(is_default = True, python_version = "3.11")
 
@@ -111,8 +112,8 @@ bazel_dep(name = "rules_dotnet", version = "0.14.0")
 # ===========================================================
 
 # Protobuf / gRPC
-bazel_dep(name = "rules_proto", version = "7.1.0")
-bazel_dep(name = "protobuf", version = "29.3", repo_name = "com_google_protobuf")
+#bazel_dep(name = "rules_proto", version = "7.1.0")
+bazel_dep(name = "protobuf", version = "35.0", repo_name = "com_google_protobuf")
 
 # CxxBridge
 http_file(
@@ -157,8 +158,13 @@ use_repo(pip, "typedb_dependencies_ci_pip")
 bazel_dep(name = "rules_jvm_external", version = "6.6")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "rules_shell", version = "0.3.0")
+
 maven = use_extension("//library/maven:maven_extension.bzl", "maven")
-use_repo(maven, "maven")
+include("//tool:maven_dependencies.MODULE.bazel")
+include("//builder:maven_dependencies.MODULE.bazel")
+include("//factory:maven_dependencies.MODULE.bazel")
+include("//common:maven_dependencies.MODULE.bazel")
+use_repo(maven, "typedb_maven")
 
 # Rust crates
 crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
@@ -334,7 +340,7 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "c26d9469c82a58c65dda7001670862482a153ef4",
+    commit = "c34c0c513e45e69e3f9d97664c7ccb5afd5f1341",
 )
 
 # ===========================================================

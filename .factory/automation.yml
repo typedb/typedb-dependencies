@@ -10,6 +10,12 @@ build:
         sudo apt-get install -y libtinfo5
         bazel build //...
         bazel test $(bazel query 'kind(checkstyle_test, //... except tool/ide/...)') || exit 1
+    validate-all-maven-deps-build:
+      image: typedb-ubuntu-22.04
+      command: |
+        sudo apt-get install -y libtinfo5
+        git apply .factory/validate_all_maven_includes.patch
+        bazel build @typedb_maven//...
     rust-ide-sync:
       image: typedb-ubuntu-22.04
       command: |

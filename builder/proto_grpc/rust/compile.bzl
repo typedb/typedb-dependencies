@@ -5,17 +5,18 @@
 
 def _rust_tonic_compile_impl(ctx):
     protos = [src[ProtoInfo].direct_sources[0] for src in ctx.attr.srcs]
+    proto_compiler = ctx.toolchains["@com_google_protobuf//bazel/private:proto_toolchain_type"].proto.proto_compiler
 
-    inputs = ctx.attr.protoc.files.to_list() + protos
     outputs = [ctx.actions.declare_file("{}.rs".format(package)) for package in ctx.attr.packages]
 
     ctx.actions.run(
-        inputs = inputs,
+        inputs = protos,
+        tools = [proto_compiler],
         outputs = outputs,
         executable = ctx.executable._compile_script,
         env = {
             "OUT_DIR": outputs[0].dirname,
-            "PROTOC": ctx.attr.protoc.files.to_list()[0].path,
+            "PROTOC": proto_compiler.executable.path,
             "PROTOS": ";".join([src.path for src in protos]),
             "PROTOS_ROOT": ";".join(depset(
                 ctx.attr.includes if ctx.attr.includes else [src[ProtoInfo].proto_source_root for src in ctx.attr.srcs]
@@ -43,14 +44,11 @@ rust_tonic_compile = rule(
             default = [],
             doc = "Additional proto include paths, relative to the workspace root. When provided, overrides auto-detected proto_source_root.",
         ),
-        "protoc": attr.label(
-            default = "@com_google_protobuf//:protoc",
-            doc = "The protoc executable."
-        ),
         "_compile_script": attr.label(
             executable = True,
             cfg = "exec",
             default = "@typedb_dependencies//builder/proto_grpc/rust:compile",
         ),
-    }
+    },
+    toolchains = ["@com_google_protobuf//bazel/private:proto_toolchain_type"],
 )

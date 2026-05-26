@@ -14,12 +14,12 @@ kt_jvm_binary(
     main_class = "com.typedb.dependencies.tool.release.version.Bump",
     deps = [
         "@typedb_bazel_distribution//common",
-        "@maven//:commons_io_commons_io",
-        "@maven//:info_picocli_picocli",
-        "@maven//:org_zeroturnaround_zt_exec",
-        "@maven//:com_fasterxml_jackson_core_jackson_core",
-        "@maven//:com_fasterxml_jackson_core_jackson_databind",
-        "@maven//:com_vdurmont_semver4j"
+        "@typedb_maven//:commons_io_commons_io",
+        "@typedb_maven//:info_picocli_picocli",
+        "@typedb_maven//:org_zeroturnaround_zt_exec",
+        "@typedb_maven//:com_fasterxml_jackson_core_jackson_core",
+        "@typedb_maven//:com_fasterxml_jackson_core_jackson_databind",
+        "@typedb_maven//:com_vdurmont_semver4j"
     ],
 )
 

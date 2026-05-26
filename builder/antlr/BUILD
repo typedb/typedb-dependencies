@@ -10,7 +10,7 @@ kt_jvm_library(
     name = "grammar-adapter-lib",
     srcs = ["GrammarAdapter.kt"],
     deps = [
-        "@maven//:info_picocli_picocli",
+        "@typedb_maven//:info_picocli_picocli",
     ],
     visibility = ["//visibility:public"],
 )
