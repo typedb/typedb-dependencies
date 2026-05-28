@@ -32,6 +32,7 @@ home = "0.5.11"
 http = "1.1.0"
 hyper = { version = "0.14.32", features = ["full"] }
 hyper-rustls = "0.25.0"
+hyper-util = { version = "0.1.18", default-features = false, features = ["tokio"] }
 itertools = "0.14.0"
 jsonwebtoken = "9.3.1"
 lz4 = "1.24.0"
