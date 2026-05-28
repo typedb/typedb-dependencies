@@ -4,7 +4,7 @@
 
 
 load("@typedb_bazel_distribution//artifact:rules.bzl", "artifact_file")
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file", "http_archive")
 
 public_artifact_sources = struct(
     release  = "https://repo.typedb.com/public/public-release/raw/",
@@ -53,6 +53,17 @@ def _native_artifact_files_impl(ctx):
                         name = target_name,
                         urls = ["{}/names/{}/versions/{}/{}".format(repository_url.rstrip("/"), group_name, version, artifact_name)],
                         downloaded_file_path = artifact_name,
+                    )
+                    http_archive(
+                        name = target_name + "-extracted",
+                        urls = ["{}/names/{}/versions/{}/{}".format(repository_url.rstrip("/"), group_name, version, artifact_name)],
+                        build_file_content = """
+filegroup(
+    name = "all_files",
+    srcs = glob(["**/*"]),
+    visibility = ["//visibility:public"],
+)
+                        """
                     )
 
 _artifact_tag = tag_class(
