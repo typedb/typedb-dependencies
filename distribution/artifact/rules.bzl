@@ -42,8 +42,11 @@ def _native_artifact_files_impl(ctx):
                     group_name = artifact.group_name.replace("{platform}", platform).replace("{ext}", ext)
                     # Can't use .format() because the result string will still have the unresolved parameter {version}
                     artifact_name = artifact.artifact_name.replace("{platform}", platform).replace("{ext}", ext)
-
                     version = artifact.tag if artifact.tag else artifact.commit
+                    if artifact.archive_strip_prefix != None:
+                        archive_strip_prefix = artifact.archive_strip_prefix.replace("{platform}", platform).replace("{version}", version)
+                    else:
+                        archive_strip_prefix = None
                     if artifact.private == True:
                         repository_url = private_artifact_sources.release if artifact.tag else private_artifact_sources.snapshot
                     else:
@@ -57,6 +60,7 @@ def _native_artifact_files_impl(ctx):
                     http_archive(
                         name = target_name + "-extracted",
                         urls = ["{}/names/{}/versions/{}/{}".format(repository_url.rstrip("/"), group_name, version, artifact_name)],
+                        strip_prefix = archive_strip_prefix,
                         build_file_content = """
 filegroup(
     name = "all_files",
@@ -92,6 +96,11 @@ _artifact_tag = tag_class(
             default = False,
             doc     = "Load the artifact from a private repository",
         ),
+        "archive_strip_prefix": attr.string(
+            mandatory = False,
+            doc     = "The prefix to strip from the archive, may contain {platform}, {version}.",
+            # Replace with strip_components if we upgrade to bazel 9
+        )
     },
 )
 
