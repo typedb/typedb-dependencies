@@ -1,15 +1,40 @@
 diff --git a/MODULE.bazel b/MODULE.bazel
-index e5eb960..58581d7 100644
+index 1c3a5cb..2f50d22 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
-@@ -160,10 +160,6 @@ bazel_dep(name = "rules_license", version = "1.0.0")
+@@ -160,35 +160,6 @@ bazel_dep(name = "rules_license", version = "1.0.0")
  bazel_dep(name = "rules_shell", version = "0.3.0")
  
  maven = use_extension("//library/maven:maven_extension.bzl", "maven")
--include("//tool:maven_dependencies.MODULE.bazel")
--include("//builder:maven_dependencies.MODULE.bazel")
--include("//factory:maven_dependencies.MODULE.bazel")
--include("//common:maven_dependencies.MODULE.bazel")
+-maven.namespace(name = "typedb_maven", artifacts = [
+-    "com.eclipsesource.minimal-json:minimal-json",  # //tool/ide:rust_sync, //tool/release/notes
+-    "com.electronwill.night-config:core",           # //tool/ide:rust_sync
+-    "com.electronwill.night-config:toml",           # //tool/ide:rust_sync
+-    "com.fasterxml.jackson.core:jackson-core",      # //tool/release/version:bump
+-    "com.fasterxml.jackson.core:jackson-databind",  # //tool/release/version:bump
+-    "com.google.http-client:google-http-client",    # //tool/release/notes
+-    "com.vdurmont:semver4j",                        # //tool/release/version:bump
+-    "commons-io:commons-io",                        # //tool/github:open-pr, //tool/release/version:bump
+-    "info.picocli:picocli",                         # //tool/ide:rust_sync, //tool/github:open-pr, //tool/release/version:bump
+-    "org.kohsuke:github-api",                       # //tool/github:open-pr
+-    "org.openjdk.jmh:jmh-core",                    # //tool/jmh
+-    "org.openjdk.jmh:jmh-generator-annprocess",    # //tool/jmh
+-    "org.zeroturnaround:zt-exec",                   # //tool/ide:rust_sync, //tool/github:open-pr, //tool/release/notes, //tool/release/version:bump
+-])
+-maven.namespace(name = "typedb_maven", artifacts = [
+-    "com.electronwill.night-config:core",        # //builder/rust/cargo:manifest-writer
+-    "com.electronwill.night-config:toml",        # //builder/rust/cargo:manifest-writer
+-    "info.picocli:picocli",                      # //builder/rust/cargo:manifest-writer, //builder/antlr:grammar-adapter
+-    "org.jetbrains.compose.compiler:compiler",   # //builder/compose:compiler_plugin
+-    "org.zeroturnaround:zt-exec",                # //builder/rust/cargo:manifest-writer
+-])
+-maven.namespace(name = "typedb_maven", artifacts = [
+-    "com.eclipsesource.minimal-json:minimal-json",  # //factory/analysis:dependency-analysis
+-    "org.zeroturnaround:zt-exec",                   # //factory/analysis:dependency-analysis
+-])
+-maven.namespace(name = "typedb_maven", artifacts = [
+-    "org.yaml:snakeyaml",  # //common/java:typedb-common
+-])
  use_repo(maven, "typedb_maven")
  
  # Rust crates
