@@ -63,6 +63,7 @@ def release_validate_deps(name, **kwargs):
     kt_jvm_test(
         name = name,
         main_class = "com.typedb.dependencies.tool.release.deps." + standard_name + "_genKt",
+        data = [kwargs["refs"], kwargs["version_file"]],
         srcs = [target_name],
         deps = [
             "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json"
