@@ -19,9 +19,9 @@ fun main(args: Array<String>) {
     val releaseNotesFile = args[2]
     val releaseNotesPath = bazelWorkspaceDir.resolve(releaseNotesFile)
     if (releaseNotesPath.notExists()) throw RuntimeException("Release notes file '$releaseNotesPath' does not exist.")
-    val releasePrefix = if (args.size > 3) args.get(3) else null
+    val tagPrefix = if (args.size > 3) args.get(3) else null
 
-    val lastTag = getLastVersion(org, repo, githubToken)
+    val lastTag = getLastVersion(org, repo, githubToken, tagPrefix)
 
     val result = bash("git diff --exit-code --quiet $lastTag HEAD -- $releaseNotesFile", bazelWorkspaceDir, false)
     if (result.getExitValue() == 0) {

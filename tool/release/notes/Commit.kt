@@ -56,18 +56,18 @@ private fun getPrecedingVersion(org: String, repo: String, version: Version, git
     return preceding
 }
 
-fun getLastVersion(org: String, repo: String, githubToken: String): Version? {
+fun getLastVersion(org: String, repo: String, githubToken: String, tagPrefix: String?): Version? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
     val tags = mutableListOf<Version>()
-    tags.addAll(body.asArray().mapNotNull(::parseTagVersion))
+    tags.addAll(body.asArray().mapNotNull { parseTagVersion(it, tagPrefix) })
     tags.sort()
     return tags.lastOrNull()
 }
 
-private fun parseTagVersion(release: JsonValue, prefix: String? = null): Version? {
+private fun parseTagVersion(release: JsonValue, tagPrefix: String?): Version? {
     val baseTag = release.asObject().get("tag_name").asString()
-    if (prefix.isNullOrBlank()) return Version.parse(baseTag)
-    if (!baseTag.startsWith(prefix)) return null
+    if (tagPrefix.isNullOrBlank()) return Version.parse(baseTag)
+    if (!baseTag.startsWith(tagPrefix)) return null
     return Version.parse(baseTag.removePrefix(baseTag))
 }
