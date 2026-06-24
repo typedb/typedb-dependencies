@@ -7,6 +7,7 @@
 package com.typedb.dependencies.tool.release.notes
 
 import com.eclipsesource.json.Json
+import com.eclipsesource.json.JsonValue
 import com.typedb.dependencies.tool.release.notes.Constant.github
 import com.typedb.dependencies.tool.common.Version
 import java.nio.file.Path
@@ -59,8 +60,14 @@ fun getLastVersion(org: String, repo: String, githubToken: String): Version? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
     val tags = mutableListOf<Version>()
-    tags.addAll(body.asArray().map { release -> Version.parse(release.asObject().get("tag_name").asString()) })
+    tags.addAll(body.asArray().mapNotNull(::parseTagVersion))
     tags.sort()
-    if (tags.size == 0) return null;
-    else return tags.last();
+    return tags.lastOrNull()
+}
+
+private fun parseTagVersion(release: JsonValue, prefix: String? = null): Version? {
+    val baseTag = release.asObject().get("tag_name").asString()
+    if (prefix.isNullOrBlank()) return Version.parse(baseTag)
+    if (!baseTag.startsWith(prefix)) return null
+    return Version.parse(baseTag.removePrefix(baseTag))
 }

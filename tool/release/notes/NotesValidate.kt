@@ -12,13 +12,14 @@ import kotlin.io.path.notExists
 fun main(args: Array<String>) {
     val bazelWorkspaceDir = Paths.get(getEnv("BUILD_WORKSPACE_DIRECTORY"))
     val githubToken = getEnv("NOTES_VALIDATE_TOKEN")
-    if (args.size != 3) throw RuntimeException("org, repo, release notes file must be supplied")
+    if (args.size < 3 || args.size > 4) throw RuntimeException("Args: <org> <repo> <release notes file> [release tag prefix]")
 
     val org = args[0]
     val repo = args[1]
     val releaseNotesFile = args[2]
     val releaseNotesPath = bazelWorkspaceDir.resolve(releaseNotesFile)
     if (releaseNotesPath.notExists()) throw RuntimeException("Release notes file '$releaseNotesPath' does not exist.")
+    val releasePrefix = if (args.size > 3) args.get(3) else null
 
     val lastTag = getLastVersion(org, repo, githubToken)
 
