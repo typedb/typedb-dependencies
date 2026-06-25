@@ -9,58 +9,69 @@ package com.typedb.dependencies.tool.release.notes
 import com.typedb.dependencies.tool.common.Version
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.concurrent.Callable
+import picocli.CommandLine
 import kotlin.io.path.notExists
+import kotlin.system.exitProcess
 import kotlin.text.Regex.Companion.escapeReplacement
 
-fun main(args: Array<String>) {
-    val bazelWorkspaceDir = Paths.get(getEnv("BUILD_WORKSPACE_DIRECTORY"))
-    val githubToken = getEnv("NOTES_CREATE_TOKEN")
-    if (args.size < 6) throw RuntimeException("org, repo, commit, version, template, and output destination must be supplied")
+object NotesCreate: Callable<Int> {
 
-    operator fun <T> Array<T>.component6() = this[5]
-    val (org, repo, commit, version, templateFileLocation, outputFileLocation) = args
+    @CommandLine.Parameters(index = "0")
+    lateinit var org: String
+
+    @CommandLine.Parameters(index = "1")
+    lateinit var repo: String
+
+    @CommandLine.Parameters(index = "2")
+    lateinit var commit: String
+
+    @CommandLine.Parameters(index = "3")
+    lateinit var version: String
+
+    @CommandLine.Parameters(index = "4")
+    lateinit var templateFileLocation: String
+
+    @CommandLine.Parameters(index = "5")
+    lateinit var outputFileLocation: String
+
+    @CommandLine.Option(names = ["-p", "--tag-prefix"])
     var releaseTagPrefix: String? = null
-    val excludedPaths = mutableListOf<String>()
-    val includedPaths = mutableListOf<String>()
-    var nextAction: String? = null
-    args.drop(6).forEachIndexed { index, arg ->
-        if (nextAction == null) {
-            if (arg == "--include" || arg == "--exclude" || arg == "--tag-prefix") nextAction = arg
-            else throw RuntimeException("Invalid arg: $arg")
-        } else if (nextAction == "--include") {
-            includedPaths.add(arg)
-            nextAction = null
-        } else if (nextAction == "--exclude") {
-            excludedPaths.add(arg)
-            nextAction = null
-        } else {
-            if (releaseTagPrefix != null) throw RuntimeException("Cannot set --tag-prefix multiple times")
-            releaseTagPrefix = arg
-            nextAction = null
-        }
+
+    @CommandLine.Option(names = ["-e", "--exclude"])
+    var excludedPaths: List<String> = emptyList()
+
+    @CommandLine.Option(names = ["-i", "--include"])
+    var includedPaths: List<String> = emptyList()
+
+    @JvmStatic
+    fun main(args: Array<String>): Unit = exitProcess(CommandLine(NotesCreate).execute(*args))
+
+    override fun call(): Int {
+        val bazelWorkspaceDir = Paths.get(getEnv("BUILD_WORKSPACE_DIRECTORY"))
+        val githubToken = getEnv("NOTES_CREATE_TOKEN")
+
+        val templateFile = bazelWorkspaceDir.resolve(templateFileLocation)
+        if (templateFile.notExists()) throw RuntimeException("Template file '$templateFile' does not exist.")
+        val outputFile = bazelWorkspaceDir.resolve(outputFileLocation)
+
+        println("Commit: $org/$repo@$commit")
+        println("Version: $version")
+
+        val commits = collectCommits(org, repo, commit, Version.parse(version), bazelWorkspaceDir, githubToken, releaseTagPrefix, excludedPaths, includedPaths)
+        println("Found ${commits.size} commits to be collected into the release note.")
+        val notes = collectNotes(org, repo, commits.reversed(), githubToken)
+        writeNotesMd(notes, templateFile, outputFile, version)
+        return 0
     }
 
-    if (nextAction != null) throw RuntimeException("Missing input value for $nextAction")
-
-    val templateFile = bazelWorkspaceDir.resolve(templateFileLocation)
-    if (templateFile.notExists()) throw RuntimeException("Template file '$templateFile' does not exist.")
-    val outputFile = bazelWorkspaceDir.resolve(outputFileLocation)
-
-    println("Commit: $org/$repo@$commit")
-    println("Version: $version")
-
-    val commits = collectCommits(org, repo, commit, Version.parse(version), bazelWorkspaceDir, githubToken, releaseTagPrefix, excludedPaths, includedPaths)
-    println("Found ${commits.size} commits to be collected into the release note.")
-    val notes = collectNotes(org, repo, commits.reversed(), githubToken)
-    writeNotesMd(notes, templateFile, outputFile, version)
-}
-
-
-private fun writeNotesMd(notes: List<Note>, releaseTemplateFile: Path, releaseNotesFile: Path, version: String) {
-    val template = releaseTemplateFile.toFile().readText()
-    if (!template.matches(".*${Constant.releaseTemplateRegex.pattern}.*".toRegex(RegexOption.DOT_MATCHES_ALL)))
-        throw RuntimeException("The release-template does not contain the '${Constant.releaseTemplateRegex}' placeholder")
-    val markdown = template.replace(Constant.releaseTemplateRegex, escapeReplacement(Note.toMarkdown(notes)))
+    private fun writeNotesMd(notes: List<Note>, releaseTemplateFile: Path, releaseNotesFile: Path, version: String) {
+        val template = releaseTemplateFile.toFile().readText()
+        if (!template.matches(".*${Constant.releaseTemplateRegex.pattern}.*".toRegex(RegexOption.DOT_MATCHES_ALL)))
+            throw RuntimeException("The release-template does not contain the '${Constant.releaseTemplateRegex}' placeholder")
+        val markdown = template.replace(Constant.releaseTemplateRegex, escapeReplacement(Note.toMarkdown(notes)))
             .replace("{version}", version)
-    releaseNotesFile.toFile().writeText(markdown)
+        releaseNotesFile.toFile().writeText(markdown)
+    }
+
 }

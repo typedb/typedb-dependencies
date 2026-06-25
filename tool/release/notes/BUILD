@@ -23,12 +23,13 @@ kt_jvm_binary(
 kt_jvm_binary(
     name = "create",
     srcs = glob(["NotesCreate.kt", "Note.kt", "Commit.kt", "Common.kt"]),
-    main_class = "com.typedb.dependencies.tool.release.notes.NotesCreateKt",
+    main_class = "com.typedb.dependencies.tool.release.notes.NotesCreate",
     deps = [
         "//tool/common:version",
         "@typedb_maven//:com_eclipsesource_minimal_json_minimal_json",
         "@typedb_maven//:com_google_http_client_google_http_client",
         "@typedb_maven//:org_zeroturnaround_zt_exec",
+        "@typedb_maven//:info_picocli_picocli",
     ],
 )
 
