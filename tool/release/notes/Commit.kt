@@ -38,6 +38,8 @@ fun collectCommits(
 }
 
 fun mayGetCommitSha(commit: JsonObject, excludedPaths: List<String>, includedPaths: List<String>, githubToken: String): String? {
+    if (excludedPaths.isEmpty() && includedPaths.isEmpty()) return commit.get("sha").asString()
+
     val commitUrl = commit.get("commit").asObject().get("url").asString().replace("/git", "")
     val commitDetails = Json.parse(httpGet(commitUrl, githubToken).parseAsString()).asObject()
     val hasRelevantFileChange = hasRelevantFileChange(commitDetails.get("files").asArray().map { it.asObject().get("filename").asString() }, excludedPaths, includedPaths)
