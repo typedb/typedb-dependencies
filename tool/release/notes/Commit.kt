@@ -7,19 +7,23 @@
 package com.typedb.dependencies.tool.release.notes
 
 import com.eclipsesource.json.Json
+import com.eclipsesource.json.JsonObject
 import com.eclipsesource.json.JsonValue
 import com.typedb.dependencies.tool.release.notes.Constant.github
 import com.typedb.dependencies.tool.common.Version
 import java.nio.file.Path
 
-fun collectCommits(org: String, repo: String, commit: String, version: Version, baseDir: Path, githubToken: String): List<String> {
+fun collectCommits(
+    org: String, repo: String, commit: String, version: Version, baseDir: Path,
+    githubToken: String, releaseTagPrefix: String?, excludedPaths: List<String>, includedPaths: List<String>
+): List<String> {
     println("Determining the commits to be collected...")
-    val preceding = getPrecedingVersion(org, repo, version, githubToken)
+    val preceding = getPrecedingVersion(org, repo, version, githubToken, releaseTagPrefix)
     if (preceding != null) {
         println("The script will collect commits down to the preceding version '$preceding'.")
         val response = httpGet("$github/repos/$org/$repo/compare/$preceding...$commit", githubToken)
         val body = Json.parse(response.parseAsString())
-        return body.asObject().get("commits").asArray().map { cmt -> cmt.asObject().get("sha").asString() }
+        return body.asObject().get("commits").asArray().mapNotNull { mayGetCommitSha(it.asObject(), excludedPaths, includedPaths, githubToken) }
     }
     else {
         val gitRevList = bash("git rev-list --max-parents=0 HEAD", baseDir)
@@ -28,17 +32,40 @@ fun collectCommits(org: String, repo: String, commit: String, version: Version, 
         val response = httpGet("$github/repos/$org/$repo/compare/$firstCommit...$commit", githubToken)
         val body = Json.parse(response.parseAsString())
         val commits =
-            body.asObject().get("commits").asArray().map { cmt -> cmt.asObject().get("sha").asString() }.toList()
+            body.asObject().get("commits").asArray().mapNotNull { mayGetCommitSha(it.asObject(), excludedPaths, includedPaths, githubToken) }.toList()
         return listOf(firstCommit) + commits
     }
 }
 
-private fun getPrecedingVersion(org: String, repo: String, version: Version, githubToken: String): Version? {
+fun mayGetCommitSha(commit: JsonObject, excludedPaths: List<String>, includedPaths: List<String>, githubToken: String): String? {
+    if (excludedPaths.isEmpty() && includedPaths.isEmpty()) return commit.get("sha").asString()
+
+    val commitUrl = commit.get("commit").asObject().get("url").asString().replace("/git", "")
+    val commitDetails = Json.parse(httpGet(commitUrl, githubToken).parseAsString()).asObject()
+    val hasRelevantFileChange = hasRelevantFileChange(commitDetails.get("files").asArray().map { it.asObject().get("filename").asString() }, excludedPaths, includedPaths)
+    return if (hasRelevantFileChange) commit.get("sha").asString() else null
+}
+
+private fun hasRelevantFileChange(
+    files: List<String>,
+    excludedPaths: List<String>,
+    includedPaths: List<String>,
+): Boolean {
+    includedPaths.forEach { included ->
+        if (files.any { it.startsWith(included) }) return true
+    }
+    excludedPaths.forEach { excluded ->
+        if (files.any { it.startsWith(excluded) }) return false
+    }
+    return true
+}
+
+private fun getPrecedingVersion(org: String, repo: String, version: Version, githubToken: String, releaseTagPrefix: String?): Version? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
     val tags = mutableListOf<Version>()
     tags.add(version)
-    tags.addAll(body.asArray().map { release -> Version.parse(release.asObject().get("tag_name").asString()) })
+    tags.addAll(body.asArray().mapNotNull { parseTagVersion(it, releaseTagPrefix) })
     tags.sort()
     val currentIdx = tags.indexOf(version)
     val preceding = when {
@@ -69,5 +96,5 @@ private fun parseTagVersion(release: JsonValue, tagPrefix: String?): Version? {
     val baseTag = release.asObject().get("tag_name").asString()
     if (tagPrefix.isNullOrBlank()) return Version.parse(baseTag)
     if (!baseTag.startsWith(tagPrefix)) return null
-    return Version.parse(baseTag.removePrefix(baseTag))
+    return Version.parse(baseTag.removePrefix(tagPrefix))
 }
