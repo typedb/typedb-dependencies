@@ -1,0 +1,8 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+FROM amazonlinux@sha256:d0cda3bbfec752b73e46311d3c6ab9ee3ebd545d85bd01a4f04a7bdeb29c682a
+RUN amazon-linux-extras install python3.8 -y && ln -s /usr/bin/python3.8 /usr/bin/python3
+RUN yum install wget make gcc gcc-c++ openssl-devel bzip2-devel libffi-devel zlib-devel file lsof which procps tar git -y
+RUN curl -OL "https://github.com/bazelbuild/bazelisk/releases/download/v1.17.0/bazelisk-linux-arm64" && mv "bazelisk-linux-arm64" /usr/local/bin/bazel && chmod a+x /usr/local/bin/bazel
