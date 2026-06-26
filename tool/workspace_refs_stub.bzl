@@ -12,7 +12,7 @@ The maven deploy rules will still work, just without dependency version info emb
 
 def _workspace_refs_stub_impl(repository_ctx):
     repository_ctx.file("BUILD", content = 'exports_files(["refs.json"])', executable = False)
-    refs_json = '{"commits": {}, "tags": {}}'
+    refs_json = '[]'
     repository_ctx.file("refs.json", content = refs_json, executable = False)
 
 workspace_refs_stub = repository_rule(
