@@ -106,7 +106,7 @@ artifacts = {
     "com.openai:openai-java": "4.19.0",
     "com.openai:openai-java-client-okhttp": "4.19.0",
     "com.openai:openai-java-core": "4.19.0",
-    "com.posthog.java:posthog": "1.1.1",
+    "com.posthog:posthog-server": "2.3.0",
     "com.quantego:clp-java": {
         "exclude": ["com.google.android.tools:dx"],
         "version": "1.16.10"
