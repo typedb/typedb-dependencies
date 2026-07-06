@@ -8,6 +8,10 @@ build:
       image: typedb-ubuntu-22.04
       command: |
         sudo apt-get install -y libtinfo5
+        if [ -n "${CARGO_BAZEL_GENERATOR_URL_LINUX_X86_64:-}" ] && [ -n "${CARGO_BAZEL_GENERATOR_SHA256_LINUX_X86_64:-}" ]; then
+            export CARGO_BAZEL_GENERATOR_URL="$CARGO_BAZEL_GENERATOR_URL_LINUX_X86_64"
+            export CARGO_BAZEL_GENERATOR_SHA256="$CARGO_BAZEL_GENERATOR_SHA256_LINUX_X86_64"
+        fi
         bazel build //...
         bazel test $(bazel query 'kind(checkstyle_test, //... except tool/ide/...)') || exit 1
     validate-all-maven-deps-build:
@@ -21,6 +25,10 @@ build:
       command: |
         library/crates/get_cargo.sh
         export PATH=$PATH:$PWD
+        if [ -n "${CARGO_BAZEL_GENERATOR_URL_LINUX_X86_64:-}" ] && [ -n "${CARGO_BAZEL_GENERATOR_SHA256_LINUX_X86_64:-}" ]; then
+            export CARGO_BAZEL_GENERATOR_URL="$CARGO_BAZEL_GENERATOR_URL_LINUX_X86_64"
+            export CARGO_BAZEL_GENERATOR_SHA256="$CARGO_BAZEL_GENERATOR_SHA256_LINUX_X86_64"
+        fi
         cd tool/ide/test/
         bazel test $(bazel query 'kind(checkstyle_test, //...)') --test_output=streamed || exit 1
         tool/ide/rust/sync.sh

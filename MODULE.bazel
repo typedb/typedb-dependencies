@@ -204,6 +204,9 @@ crate.from_cargo(
         "x86_64-pc-windows-msvc",
         "x86_64-unknown-linux-gnu",
     ],
+    # The cargo-bazel tool doesn't get cached for whatever reason. To use a precompiled one:
+    #  * If this rule ever supports a `generator` attribute (crates_repository does), set it.
+    #  * Till then, set CARGO_BAZEL_GENERATOR_URL to the appropriate one from cloudsmith.
 )
 crate.annotation(
     crate = "cbindgen",
