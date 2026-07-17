@@ -215,6 +215,19 @@ crate.annotation(
 crate.annotation(
     crate = "librocksdb-sys",
     rustc_flags = ["-C", "opt-level=3"],
+    # Force deterministic (relative) paths into the compiled artifact so it's byte-reproducible.
+    build_script_env = {
+        "CFLAGS": "-ffile-prefix-map=$${pwd}=.",
+        "CXXFLAGS": "-ffile-prefix-map=$${pwd}=.",
+    },
+)
+crate.annotation(
+    crate = "lz4-sys",
+    # Force deterministic (relative) paths into the compiled artifact so it's byte-reproducible.
+    build_script_env = {
+        "CFLAGS": "-ffile-prefix-map=$${pwd}=.",
+        "CXXFLAGS": "-ffile-prefix-map=$${pwd}=.",
+    },
 )
 crate.annotation(
     crate = "protobuf-build",
