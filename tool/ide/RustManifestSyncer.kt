@@ -7,7 +7,6 @@
 package com.typedb.dependencies.tool.ide
 
 import com.eclipsesource.json.Json
-import com.eclipsesource.json.JsonObject
 import com.electronwill.nightconfig.core.Config
 import com.electronwill.nightconfig.toml.TomlWriter
 import com.typedb.bazel.distribution.common.Logging.LogLevel.DEBUG
@@ -21,14 +20,15 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.BAZEL_BIN
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.BUILD
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.CQUERY
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.INFO
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.MOD
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_BASE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_FILES
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_GROUPS
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.QUERY
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.RUST_TARGETS_QUERY
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.SHOW_REPO
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.CARGO_TOML
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.CARGO_WORKSPACE_SUFFIX
-import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.EXTERNAL_PLACEHOLDER
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.GITHUB_TYPEDB
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.MANIFEST_PROPERTIES_SUFFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_DEPS
@@ -78,6 +78,7 @@ class RustManifestSyncer : Callable<Unit> {
         shell = Shell(logger, verbose)
 
         val workspaceRefs = loadWorkspaceRefs();
+        System.out.println(workspaceRefs);
         val rustTargets = rustTargets(shell, workspaceDir)
         validateTargets(rustTargets)
         loadRustToolchainAndExternalDeps(rustTargets)
@@ -92,13 +93,35 @@ class RustManifestSyncer : Callable<Unit> {
         shell.execute(command = listOf(BAZEL, BUILD) + rustTargets + "--keep_going", baseDir = workspaceDir, throwOnError = false)
     }
 
-    private fun loadWorkspaceRefs(): JsonObject {
+    private fun loadWorkspaceRefs(): Map<String, WorkspaceRefVersion> {
         shell.execute(command = listOf(BAZEL, BUILD, workspaceRefsLabel), baseDir = workspaceDir);
         val workspaceRefsFile = shell.execute(command = listOf(BAZEL, CQUERY, OUTPUT_FILES, workspaceRefsLabel), baseDir = workspaceDir)
                 .outputString().trim();
 
         val bazelOutputBase = shell.execute(listOf(BAZEL, INFO, OUTPUT_BASE), workspaceDir).outputString().trim();
-        return Json.parse(File(bazelOutputBase, workspaceRefsFile).readText()).asObject();
+        val workspaceRepoNames = Json.parse(File(bazelOutputBase, workspaceRefsFile).readText()).asArray();
+        return workspaceRepoNames.map { it.asString() to queryWorkspaceRefVersion(it.asString(), workspaceDir) }.toMap();
+    }
+
+    private fun queryWorkspaceRefVersion(repoName: String, workspace: Path): WorkspaceRefVersion {
+         val showRepoOutput = shell.execute(listOf(BAZEL, MOD, SHOW_REPO, repoName.removeSuffix("+")), workspace)
+            .outputString();
+        val tagsAndCommitLines = showRepoOutput.split(System.lineSeparator()).filter { it.isNotBlank() }
+            .map { it.split("=").map { it.trim(' ', ',', '\"') } }
+            .map {
+                if (it[0] == "tag") {
+                    WorkspaceRefVersion(tag = it[1], commit = null)
+                } else if (it[0] == "commit") {
+                    WorkspaceRefVersion(commit = it[1], tag = null)
+                } else {
+                    null
+                }
+            }.filter { it != null }
+            .toList();
+        if (tagsAndCommitLines.size != 1) {
+            throw RuntimeException("Expected 1, but found ${tagsAndCommitLines.size} tag/commit lines in show_repo output: ${showRepoOutput}")
+        }
+        return tagsAndCommitLines[0]!!;
     }
 
     companion object {
@@ -108,7 +131,12 @@ class RustManifestSyncer : Callable<Unit> {
         }
     }
 
-    private class WorkspaceSyncer(private val workspace: Path, private val workspaceRefs: JsonObject, private var logger: Logger, private var shell: Shell) {
+    data class WorkspaceRefVersion(
+        val commit: String?,
+        val tag: String?,
+    )
+
+    private class WorkspaceSyncer(private val workspace: Path, private val workspaceRefs: Map<String, WorkspaceRefVersion>, private var logger: Logger, private var shell: Shell) {
         val canonicalExternalPathDeps: MutableMap<String, String> = mutableMapOf()
 
         fun sync() {
@@ -288,7 +316,7 @@ class RustManifestSyncer : Callable<Unit> {
 
                 cargoToml.createSubConfig().apply {
                     cargoToml.set<Config>("dependencies", this)
-                    properties.deps.forEach { 
+                    properties.deps.forEach {
                         val depConfig = Config.inMemory()
                         depConfig.set<Boolean>("workspace", true)
                         set<Config>(it.name, depConfig)
@@ -468,6 +496,8 @@ class RustManifestSyncer : Callable<Unit> {
                             } else if (tag != null) {
                                 set<String>("tag", tag);
                             } else {
+                                System.out.println("FAILING AT: ");
+                                System.out.println(this);
                                 throw IllegalStateException();
                             }
                             set<List<String>>("features", features)
@@ -477,7 +507,7 @@ class RustManifestSyncer : Callable<Unit> {
                 }
 
                 companion object {
-                    fun of(rawKey: String, rawValue: String, workspaceRefs: JsonObject): Dependency {
+                    fun of(rawKey: String, rawValue: String, workspaceRefs: Map<String, WorkspaceRefVersion>): Dependency {
                         val name = rawKey.split(".", limit = 2)[1]
                         val rawValueProps = rawValue.split(";")
                                 .associate { it.split("=", limit = 2).let { parts -> parts[0] to parts[1] } }
@@ -493,13 +523,18 @@ class RustManifestSyncer : Callable<Unit> {
                             //       any internal git dependency is named "@{workspaceName}" where all hyphens in the name are replaced by underscores
                             val workspaceName = rawValueProps[WORKSPACE_NAME]!!;
                             val repoName = workspaceName.removeSuffix("+").replace("_", "-");
-                            Git(
+                            val git = Git(
                                     name = name,
                                     repoName = repoName,
-                                    commit = workspaceRefs["commits"].asObject()[workspaceName]?.asString(),
-                                    tag = workspaceRefs["tags"].asObject()[workspaceName]?.asString(),
+                                    commit = workspaceRefs[workspaceName]?.commit,
+                                    tag = workspaceRefs[workspaceName]?.tag,
                                     features = features,
-                            )
+                            );
+                            System.out.print("For " + repoName)
+                            System.out.println(git);
+                            System.out.print("WORKSPACEREFS: ")
+                            System.out.println(workspaceRefs)
+                            git
                         } else {
                             Local(
                                     name = name,
@@ -531,7 +566,7 @@ class RustManifestSyncer : Callable<Unit> {
             }
 
             companion object {
-                fun fromPropertiesFile(path: File, workspaceRefs: JsonObject): TargetProperties {
+                fun fromPropertiesFile(path: File, workspaceRefs: Map<String, WorkspaceRefVersion>): TargetProperties {
                     val props = Properties().apply { load(FileInputStream(path.toString())) }
                     try {
                         return TargetProperties(
@@ -560,7 +595,7 @@ class RustManifestSyncer : Callable<Unit> {
 
                 fun mergeList(all_properties: List<TargetProperties>): TargetProperties {
                     var base = all_properties.get(0);
-                    all_properties.subList(1, all_properties.size).forEach { properties -> 
+                    all_properties.subList(1, all_properties.size).forEach { properties ->
                         base = TargetProperties(
                                 path = base.path,
                                 name = base.name,
@@ -644,7 +679,7 @@ class RustManifestSyncer : Callable<Unit> {
                             .toMap()
                 }
 
-                private fun parseDependencies(raw: Map<String, String>, workspaceRefs: JsonObject): Collection<Dependency> {
+                private fun parseDependencies(raw: Map<String, String>, workspaceRefs: Map<String, WorkspaceRefVersion>): Collection<Dependency> {
                     return raw.map { Dependency.of(it.key, it.value, workspaceRefs) }
                 }
             }
@@ -697,6 +732,8 @@ class RustManifestSyncer : Callable<Unit> {
         const val OUTPUT_GROUPS = "--output_groups=rust_cargo_properties"
         const val QUERY = "query"
         const val CQUERY = "cquery"
+        const val MOD = "mod"
+        const val SHOW_REPO = "show_repo"
         const val OUTPUT_FILES = "--output=files"
         const val OUTPUT_BASE = "output_base"
         const val RUST_TARGETS_QUERY = "kind(rust_*, //...)"
