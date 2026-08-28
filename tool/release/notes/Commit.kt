@@ -63,39 +63,41 @@ private fun hasRelevantFileChange(
 private fun getPrecedingVersionTag(org: String, repo: String, version: Version, githubToken: String, releaseTagPrefix: String?): String? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
-    val tags = mutableListOf<Version>()
-    tags.add(version)
-    tags.addAll(body.asArray().mapNotNull { parseTagVersion(it, releaseTagPrefix) })
-    tags.sort()
-    val currentIdx = tags.indexOf(version)
+    val tags = mutableListOf<String>()
+    tags.addAll(body.asArray().map { it.asObject().get("tag_name").asString() } .filterNotNull())
+    val tagToVersion = tags.associateBy({it}, {parseTagVersion(it, releaseTagPrefix)})
+    tags.sortBy { tagToVersion[it] }
+    val currentIdx = tags.size
     val preceding = when {
         currentIdx < 0 -> throw IllegalStateException("Version '$version' not found: currentIdx = '$currentIdx'")
         currentIdx == 0 -> null
-        version.isPrerelease() -> tags[currentIdx - 1]
         else -> {
             var previousRelease = currentIdx - 1
-            while (previousRelease >= 0 && tags[previousRelease].isPrerelease()) previousRelease--
+            while (previousRelease >= 0)  {
+                var candidate = tagToVersion[tags[previousRelease]];
+                if (candidate == null || candidate.isPrerelease() && !version.isPrerelease() || candidate >= version)
+                    previousRelease--
+                else
+                    break
+            }
 
             if (previousRelease < 0) null
             else tags[previousRelease]
         }
     }
-    if (preceding == null) return null;
-    if (releaseTagPrefix.isNullOrBlank()) return preceding.toString();
-    else return "$releaseTagPrefix$preceding"
+    return preceding
 }
 
 fun getLastVersion(org: String, repo: String, githubToken: String, tagPrefix: String?): Version? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
     val tags = mutableListOf<Version>()
-    tags.addAll(body.asArray().mapNotNull { parseTagVersion(it, tagPrefix) })
+    tags.addAll(body.asArray().mapNotNull { parseTagVersion(it.asObject().get("tag_name").asString(), tagPrefix) })
     tags.sort()
     return tags.lastOrNull()
 }
 
-private fun parseTagVersion(release: JsonValue, tagPrefix: String?): Version? {
-    val baseTag = release.asObject().get("tag_name").asString()
+private fun parseTagVersion(baseTag: String, tagPrefix: String?): Version? {
     if (tagPrefix.isNullOrBlank()) return Version.parse(baseTag)
     if (!baseTag.startsWith(tagPrefix)) return null
     return Version.parse(baseTag.removePrefix(tagPrefix))
