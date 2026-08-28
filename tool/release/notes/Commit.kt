@@ -18,7 +18,7 @@ fun collectCommits(
     githubToken: String, releaseTagPrefix: String?, excludedPaths: List<String>, includedPaths: List<String>
 ): List<String> {
     println("Determining the commits to be collected...")
-    val preceding = getPrecedingVersion(org, repo, version, githubToken, releaseTagPrefix)
+    val preceding = getPrecedingVersionTag(org, repo, version, githubToken, releaseTagPrefix)
     if (preceding != null) {
         println("The script will collect commits down to the preceding version '$preceding'.")
         val response = httpGet("$github/repos/$org/$repo/compare/$preceding...$commit", githubToken)
@@ -60,7 +60,7 @@ private fun hasRelevantFileChange(
     return true
 }
 
-private fun getPrecedingVersion(org: String, repo: String, version: Version, githubToken: String, releaseTagPrefix: String?): Version? {
+private fun getPrecedingVersionTag(org: String, repo: String, version: Version, githubToken: String, releaseTagPrefix: String?): String? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
     val tags = mutableListOf<Version>()
@@ -80,7 +80,9 @@ private fun getPrecedingVersion(org: String, repo: String, version: Version, git
             else tags[previousRelease]
         }
     }
-    return preceding
+    if (preceding == null) return null;
+    if (releaseTagPrefix.isNullOrBlank()) return preceding.toString();
+    else return "$releaseTagPrefix$preceding"
 }
 
 fun getLastVersion(org: String, repo: String, githubToken: String, tagPrefix: String?): Version? {
