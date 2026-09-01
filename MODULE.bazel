@@ -98,6 +98,9 @@ bazel_dep(name = "rules_python", version = "2.3.2")
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(is_default = True, python_version = "3.11")
 
+rules_python_config = use_extension("@rules_python//python/extensions:config.bzl", "config")
+rules_python_config.explicit_init_py(default = True)
+
 # Java
 bazel_dep(name = "rules_java", version = "8.6.2")
 
@@ -381,7 +384,7 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "c98429250c448e7bd940062584c3ebd6a2368faf",
+    commit = "f783fde1160f33412a959b60cbf4caa851720811",
 )
 
 # ===========================================================
