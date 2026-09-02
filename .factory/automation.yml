@@ -23,8 +23,8 @@ build:
     rust-ide-sync:
       image: typedb-ubuntu-22.04
       command: |
-        library/crates/get_cargo.sh
-        export PATH=$PATH:$PWD
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+        source ~/.cargo/env
         if [ -n "${CARGO_BAZEL_GENERATOR_URL_LINUX_X86_64:-}" ] && [ -n "${CARGO_BAZEL_GENERATOR_SHA256_LINUX_X86_64:-}" ]; then
             export CARGO_BAZEL_GENERATOR_URL="$CARGO_BAZEL_GENERATOR_URL_LINUX_X86_64"
             export CARGO_BAZEL_GENERATOR_SHA256="$CARGO_BAZEL_GENERATOR_SHA256_LINUX_X86_64"
