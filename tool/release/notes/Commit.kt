@@ -18,7 +18,7 @@ fun collectCommits(
     githubToken: String, releaseTagPrefix: String?, excludedPaths: List<String>, includedPaths: List<String>
 ): List<String> {
     println("Determining the commits to be collected...")
-    val preceding = getPrecedingVersion(org, repo, version, githubToken, releaseTagPrefix)
+    val preceding = getPrecedingVersionTag(org, repo, version, githubToken, releaseTagPrefix)
     if (preceding != null) {
         println("The script will collect commits down to the preceding version '$preceding'.")
         val response = httpGet("$github/repos/$org/$repo/compare/$preceding...$commit", githubToken)
@@ -60,21 +60,26 @@ private fun hasRelevantFileChange(
     return true
 }
 
-private fun getPrecedingVersion(org: String, repo: String, version: Version, githubToken: String, releaseTagPrefix: String?): Version? {
+private fun getPrecedingVersionTag(org: String, repo: String, version: Version, githubToken: String, releaseTagPrefix: String?): String? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
-    val tags = mutableListOf<Version>()
-    tags.add(version)
-    tags.addAll(body.asArray().mapNotNull { parseTagVersion(it, releaseTagPrefix) })
-    tags.sort()
-    val currentIdx = tags.indexOf(version)
+    val tags = mutableListOf<String>()
+    tags.addAll(body.asArray().map { it.asObject().get("tag_name").asString() } .filterNotNull())
+    val tagToVersion = tags.associateBy({it}, {parseTagVersion(it, releaseTagPrefix)})
+    tags.sortBy { tagToVersion[it] }
+    val currentIdx = tags.size
     val preceding = when {
         currentIdx < 0 -> throw IllegalStateException("Version '$version' not found: currentIdx = '$currentIdx'")
         currentIdx == 0 -> null
-        version.isPrerelease() -> tags[currentIdx - 1]
         else -> {
             var previousRelease = currentIdx - 1
-            while (previousRelease >= 0 && tags[previousRelease].isPrerelease()) previousRelease--
+            while (previousRelease >= 0)  {
+                var candidate = tagToVersion[tags[previousRelease]];
+                if (candidate == null || candidate.isPrerelease() && !version.isPrerelease() || candidate >= version)
+                    previousRelease--
+                else
+                    break
+            }
 
             if (previousRelease < 0) null
             else tags[previousRelease]
@@ -83,17 +88,20 @@ private fun getPrecedingVersion(org: String, repo: String, version: Version, git
     return preceding
 }
 
-fun getLastVersion(org: String, repo: String, githubToken: String, tagPrefix: String?): Version? {
+fun getLastVersionTag(org: String, repo: String, githubToken: String, tagPrefix: String?): String? {
     val response = httpGet("$github/repos/$org/$repo/releases", githubToken)
     val body = Json.parse(response.parseAsString())
     val tags = mutableListOf<Version>()
-    tags.addAll(body.asArray().mapNotNull { parseTagVersion(it, tagPrefix) })
-    tags.sort()
-    return tags.lastOrNull()
+    return body.asArray()
+        .map { it.asObject().get("tag_name").asString() }
+        .mapNotNull {
+            val version = parseTagVersion(it, tagPrefix)
+            if (version != null) it to version else null
+        }
+        .maxByOrNull { it.second }?.first
 }
 
-private fun parseTagVersion(release: JsonValue, tagPrefix: String?): Version? {
-    val baseTag = release.asObject().get("tag_name").asString()
+private fun parseTagVersion(baseTag: String, tagPrefix: String?): Version? {
     if (tagPrefix.isNullOrBlank()) return Version.parse(baseTag)
     if (!baseTag.startsWith(tagPrefix)) return null
     return Version.parse(baseTag.removePrefix(tagPrefix))
