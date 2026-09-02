@@ -418,7 +418,7 @@ class RustManifestSyncer : Callable<Unit> {
                             this@createEntryPointSubConfig.set<Config>("lib", this)
                             // when the package is renamed, pin the lib name so the import path is unchanged
                             if (properties.packageName(packageMetadata) != properties.name) {
-                                set<String>("name", properties.name.replace('-', '_'))
+                                set<String>("name", properties.libName())
                             }
                             set<String>("path", entryPointPath)
                             set<List<String>>("crate-type", properties.crateTypes)
@@ -547,6 +547,12 @@ class RustManifestSyncer : Callable<Unit> {
 
             fun packageName(metadata: PackageMetadata): String {
                 return if (metadata.packagePrefix == null || hasExplicitCrateName) name else metadata.packagePrefix + name
+            }
+
+            // The extern crate name of this target's library -- the name source imports use.
+            // Mirrors how both cargo and rules_rust derive crate names from target names ('-' -> '_').
+            fun libName(): String {
+                return name.replace('-', '_')
             }
 
             sealed class Dependency(open val name: String) {
