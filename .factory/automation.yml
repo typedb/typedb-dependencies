@@ -31,8 +31,7 @@ build:
         fi
         cd tool/ide/test/
         bazel test $(bazel query 'kind(checkstyle_test, //...)') --test_output=streamed || exit 1
-        tool/ide/rust/sync.sh
-        cargo generate-lockfile --quiet && echo SUCCESS
+        tool/ide/rust/verify.sh
     deploy-maven-snapshot:
       filter:
         owner: typedb
