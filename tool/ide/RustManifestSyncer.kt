@@ -80,11 +80,6 @@ class RustManifestSyncer : Callable<Unit> {
     )
     private var versionFile: String? = null
 
-    @CommandLine.Option(
-            names = ["--workspace-package-entry"], required = false,
-            description = ["Additional key=value entry for [workspace.package], inherited by every package, repeatable"],
-    )
-    private var workspacePackageEntries: MutableList<String> = mutableListOf()
 
     @CommandLine.Parameters(index = "0")
     private var workspaceRefsLabel: String = ""
@@ -101,13 +96,6 @@ class RustManifestSyncer : Callable<Unit> {
         val packageMetadata = PackageMetadata(
                 packagePrefix = packagePrefix,
                 version = versionFile?.let { workspaceDir.resolve(it).toFile().readText().trim() },
-                extraEntries = workspacePackageEntries.associate { entry ->
-                    val (key, value) = entry.split("=", limit = 2).also {
-                        require(it.size == 2 && it[0].isNotBlank()) { "--workspace-package-entry must be key=value, got: '$entry'" }
-                    }
-                    require(key !in RESERVED_WORKSPACE_PACKAGE_KEYS) { "--workspace-package-entry key '$key' has a dedicated flag; use that instead" }
-                    key to value
-                },
         )
         val workspaceRefs = loadWorkspaceRefs();
         val rustTargets = rustTargets(shell, workspaceDir)
@@ -134,8 +122,6 @@ class RustManifestSyncer : Callable<Unit> {
     }
 
     companion object {
-        private val RESERVED_WORKSPACE_PACKAGE_KEYS = setOf("version")
-
         private fun rustTargets(shell: Shell, workspace: Path): List<String> {
             return shell.execute(listOf(BAZEL, QUERY, RUST_TARGETS_QUERY), workspace)
                     .outputString().split(System.lineSeparator()).filter { it.isNotBlank() }
@@ -145,10 +131,9 @@ class RustManifestSyncer : Callable<Unit> {
     data class PackageMetadata(
             val packagePrefix: String?,
             val version: String?,
-            val extraEntries: Map<String, String> = emptyMap(),
     ) {
         val isEmpty
-            get() = packagePrefix == null && version == null && extraEntries.isEmpty()
+            get() = packagePrefix == null && version == null
     }
 
     private class WorkspaceSyncer(
@@ -220,7 +205,6 @@ class RustManifestSyncer : Callable<Unit> {
                 subConfig.createSubConfig().apply {
                     subConfig.set<Config>("package", this)
                     packageMetadata.version?.let { set<String>("version", it) }
-                    packageMetadata.extraEntries.forEach { (key, value) -> valueMap()[key] = value }
                 }
             }
 
@@ -375,7 +359,6 @@ class RustManifestSyncer : Callable<Unit> {
                     } else {
                         set<String>("version", properties.version)
                     }
-                    packageMetadata.extraEntries.keys.forEach { valueMap()[it] = workspaceInherited() }
                     properties.buildScript?.let { set<String>("build", it) }
                 }
 

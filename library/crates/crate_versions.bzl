@@ -5,12 +5,6 @@
 # Exposes the crate versions pinned in the crate universe manifest (library/crates/Cargo.toml)
 # as a loadable Starlark dict (@crate_versions//:versions.bzl%CRATE_VERSIONS), so BUILD files
 # can reference a pin instead of duplicating a version literal.
-#
-# Nothing needs to be run by hand: Bazel materializes the @crate_versions repository lazily,
-# the first time a BUILD file loads from it, and re-runs this rule automatically whenever
-# library/crates/Cargo.toml changes (the manifest is read through its label, which registers
-# the file as a dependency of the repository). The usual universe workflow is unchanged —
-# edit Cargo.toml, run library/crates/update.sh as before; the dict follows the manifest.
 
 def _parse_version(value):
     if value.startswith("\""):

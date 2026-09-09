@@ -338,7 +338,7 @@ def _package_path_from_root(label):
 def _crate_build_deps_info(crate_info):
     return [build_dep[CrateInfo].crate_name for build_dep in crate_info.build_deps]
 
-def _build_dep_name(build_dep):
+def _build_dep_name(build_deqp):
     return _build_dep_parts(build_dep)[0]
 
 def _build_dep_location(build_dep):
