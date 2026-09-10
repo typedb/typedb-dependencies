@@ -2,8 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-load("@crate_versions//:versions.bzl", "CRATE_VERSIONS")
-
 
 def _rust_tonic_compile_impl(ctx):
     protos = [src[ProtoInfo].direct_sources[0] for src in ctx.attr.srcs]
@@ -55,18 +53,3 @@ rust_tonic_compile = rule(
     toolchains = ["@com_google_protobuf//bazel/private:proto_toolchain_type"],
 )
 
-# Tags for the rust_library that compiles a rust_tonic_compile output, telling the cargo
-# sync tool how the cargo build replaces this rule: a checked-in entry point plus
-# build.rs + tonic-build, with tonic-build's version spec taken from the crate universe
-# (library/crates/Cargo.toml) so the Bazel and cargo sides cannot drift.
-#
-#     rust_library(
-#         ...,
-#         tags = rust_tonic_cargo_tags(),
-#     )
-def rust_tonic_cargo_tags(entry_point = "lib.rs", build_script = "build.rs"):
-    return [
-        "cargo-entry-point=" + entry_point,
-        "cargo-build-script=" + build_script,
-        "cargo-build-dep=tonic-build@" + CRATE_VERSIONS["tonic-build"],
-    ]
