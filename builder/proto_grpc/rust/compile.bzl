@@ -52,4 +52,3 @@ rust_tonic_compile = rule(
     },
     toolchains = ["@com_google_protobuf//bazel/private:proto_toolchain_type"],
 )
-

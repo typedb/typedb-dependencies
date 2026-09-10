@@ -545,7 +545,8 @@ class RustManifestSyncer : Callable<Unit> {
             val cargoWorkspaceDir get() = path.parentFile.resolve(targetName + CARGO_WORKSPACE_SUFFIX)
 
             fun packageName(metadata: PackageMetadata): String {
-                return if (metadata.packagePrefix == null || hasExplicitCrateName) name else metadata.packagePrefix + name
+                return if (metadata.packagePrefix == null || hasExplicitCrateName) name
+                else metadata.packagePrefix + name
             }
 
             // The extern crate name of this target's library -- the name source imports use.
@@ -569,10 +570,13 @@ class RustManifestSyncer : Callable<Unit> {
                         this is Local && other is Local && local_path == other.local_path ->
                             Local(name, local_path, (features + other.features).distinct())
 
-                        this is Git && other is Git && repoName == other.repoName && commit == other.commit && tag == other.tag ->
+                        this is Git && other is Git && repoName == other.repoName &&
+                                commit == other.commit && tag == other.tag ->
                             Git(name, repoName, commit, tag, (features + other.features).distinct())
 
-                        else -> throw IllegalStateException("Conflicting definitions of dependency '$name': $this vs $other")
+                        else -> throw IllegalStateException(
+                            "Conflicting definitions of dependency '$name': $this vs $other"
+                        )
                     }
                 }
 
