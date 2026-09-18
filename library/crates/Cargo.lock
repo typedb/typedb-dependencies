@@ -2946,6 +2946,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "numkong"
+version = "7.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "221cf2cb86582f5952456f6e75e9cc828258e24c3ffac49e52d3fe3ab44dd5c1"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "objc2"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5676,6 +5685,7 @@ dependencies = [
  "unicase",
  "ureq",
  "url",
+ "usearch",
  "uuid",
  "xoshiro",
  "xxhash-rust",
@@ -5787,6 +5797,17 @@ dependencies = [
  "percent-encoding",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "usearch"
+version = "2.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b43f3a7c8d3b100d53c1a34e9ce4cd76cc83627bdb4fcd035d4e82102778aeee"
+dependencies = [
+ "cxx",
+ "cxx-build",
+ "numkong",
 ]
 
 [[package]]
