@@ -92,6 +92,7 @@ xxhash-rust = { version = "0.8.12", features = ["xxh3"] }
 yaml-rust2 = "0.10.1"
 zstd = { version = "0.14.3", default-features = false }
 simsimd = "6.5.16"
+usearch = "2.26.2"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
