@@ -1,0 +1,15 @@
+--- build.rs	2026-09-21 00:00:00.000000000 +0000
++++ build.rs	2026-09-21 00:00:00.000000000 +0000
+@@ -81,5 +81,12 @@
+     }
+ 
+     build.try_compile("usearch")?;
+ 
++    // cxx-build leaves OUT_DIR/cxxbridge/crate/usearch as a symlink to CARGO_MANIFEST_DIR,
++    // a temporary sandbox path under Bazel (rules_rust) — the dangling symlink fails
++    // output-tree validation. Nothing reads these headers after try_compile, so drop them.
++    if let Ok(out_dir) = std::env::var("OUT_DIR") {
++        let _ = std::fs::remove_dir_all(std::path::Path::new(&out_dir).join("cxxbridge"));
++    }
++
+     println!("cargo:rerun-if-changed=rust/lib.rs");
