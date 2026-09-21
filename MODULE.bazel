@@ -245,6 +245,11 @@ crate.annotation(
         "PROTOC": "$(execpath @@protobuf+//:protoc)",
     },
 )
+crate.annotation(
+    crate = "usearch",
+    # cxx-build leaves a dangling sandbox-path symlink in OUT_DIR, failing Bazel output validation
+    patches = ["//patches:usearch-hermetic-outdir.patch"],
+)
 use_repo(crate, "crates")
 
 # ===========================================================
