@@ -249,6 +249,12 @@ crate.annotation(
     crate = "usearch",
     # cxx-build leaves a dangling sandbox-path symlink in OUT_DIR, failing Bazel output validation
     patches = ["//patches:usearch-hermetic-outdir.patch"],
+    # Without an absolute CARGO_TARGET_DIR, cxx-build falls back to the `scratch` crate's
+    # out_dir for its shared header dir — a read-only input in the Linux sandbox (EROFS).
+    # The dir is a debugging convenience only; point it at a throwaway sandbox path.
+    build_script_env = {
+        "CARGO_TARGET_DIR": "$${pwd}/cxx-target",
+    },
 )
 use_repo(crate, "crates")
 
