@@ -219,9 +219,10 @@ crate.annotation(
     crate = "librocksdb-sys",
     rustc_flags = ["-C", "opt-level=3"],
     # Force deterministic (relative) paths into the compiled artifact so it's byte-reproducible.
+    # RocksDB 11 requires C++20; this comes after the toolchain's -std=c++17, so it takes effect.
     build_script_env = {
         "CFLAGS": "-fdebug-prefix-map=$${pwd}=.",
-        "CXXFLAGS": "-fdebug-prefix-map=$${pwd}=.",
+        "CXXFLAGS": "-fdebug-prefix-map=$${pwd}=. -std=c++20",
     },
 )
 crate.annotation(
