@@ -6,20 +6,28 @@
 
 # Script for regenerating BUILD files after Cargo.toml update
 
-set -ex
+set -ex -o pipefail
 
-if [ ! -x cargo ]; then
-    arch=$(bash --version | head -n1 | grep -o '\S\+$')  # (arch-vendor-os)
-    arch=${arch#(} && arch=${arch%)} # strip parentheses
-    if [[ $arch == x86_64-apple-darwin* ]]; then
-        curl -o cargo https://repo.typedb.com/public/public-tools/raw/versions/1.66.0_darwin_x86_64/cargo
-    elif [[ $arch == arm64-apple-darwin* ]]; then
-        curl -o cargo https://repo.typedb.com/public/public-tools/raw/versions/1.66.0_darwin_arm64/cargo
-    elif [[ $arch == x86_64-*-linux* ]]; then
-        curl -o cargo https://repo.typedb.com/public/public-tools/raw/versions/1.66.0_linux_x86_64/cargo
-    else
-        echo "Unsupported architecture: $arch"
-        exit 1
-    fi
-    chmod +x cargo
+CARGO_VERSION=1.93.0
+
+# A cached cargo of another version is replaced: update.sh needs this one.
+if [ -x cargo ] && [[ $(./cargo --version) == "cargo $CARGO_VERSION "* ]]; then
+    exit 0
 fi
+
+arch=$(bash --version | head -n1 | grep -o '\S\+$')  # (arch-vendor-os)
+arch=${arch#(} && arch=${arch%)} # strip parentheses
+if [[ $arch == x86_64-apple-darwin* ]]; then
+    target=x86_64-apple-darwin
+elif [[ $arch == arm64-apple-darwin* ]]; then
+    target=aarch64-apple-darwin
+elif [[ $arch == x86_64-*-linux* ]]; then
+    target=x86_64-unknown-linux-gnu
+else
+    echo "Unsupported architecture: $arch"
+    exit 1
+fi
+
+curl -fsSL "https://static.rust-lang.org/dist/cargo-$CARGO_VERSION-$target.tar.xz" \
+    | tar -xJ --strip-components=3 "cargo-$CARGO_VERSION-$target/cargo/bin/cargo"
+chmod +x cargo
