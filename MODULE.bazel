@@ -71,10 +71,12 @@ git_override(
     patches = ["//patches:rules_rust.patch"],
 )
 
+RUST_VERSION = "1.93.0"
+
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
     edition = "2024",
-    versions = ["1.93.0"],
+    versions = [RUST_VERSION],
     extra_target_triples = [
         "aarch64-apple-darwin",
         "aarch64-unknown-linux-gnu",
@@ -87,7 +89,7 @@ use_repo(rust, "rust_toolchains")
 register_toolchains("@rust_toolchains//:all")
 
 rust_host_tools = use_extension("@rules_rust//rust:extensions.bzl", "rust_host_tools")
-rust_host_tools.host_tools(version = "1.93.0")
+rust_host_tools.host_tools(version = RUST_VERSION)
 
 # Kotlin
 bazel_dep(name = "rules_kotlin", version = "2.0.0", repo_name = "io_bazel_rules_kotlin")

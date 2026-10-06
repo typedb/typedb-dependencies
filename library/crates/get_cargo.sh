@@ -8,7 +8,9 @@
 
 set -ex -o pipefail
 
-CARGO_VERSION=1.93.0
+# A dirty hack to declare CARGO_VERSION in a single place
+CARGO_VERSION=$(sed -n 's/^RUST_VERSION = "\(.*\)"$/\1/p' "$(dirname "${BASH_SOURCE[0]}")/../../MODULE.bazel")
+[ -n "$CARGO_VERSION" ] || { echo "RUST_VERSION is not declared in MODULE.bazel"; exit 1; }
 
 # A cached cargo of another version is replaced: update.sh needs this one.
 if [ -x cargo ] && [[ $(./cargo --version) == "cargo $CARGO_VERSION "* ]]; then
