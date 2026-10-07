@@ -9,10 +9,13 @@
 set -ex -o pipefail
 
 # A dirty hack to declare CARGO_VERSION in a single place
-CARGO_VERSION=$(sed -n 's/^RUST_VERSION = "\(.*\)"$/\1/p' "$(dirname "${BASH_SOURCE[0]}")/../../MODULE.bazel")
-[ -n "$CARGO_VERSION" ] || { echo "RUST_VERSION is not declared in MODULE.bazel"; exit 1; }
+module_file="$(dirname "${BASH_SOURCE[0]}")/../../MODULE.bazel"
+CARGO_VERSION=$(sed -nE "s/^RUST_VERSION *= *[\"']([^\"']+)[\"'].*/\1/p" "$module_file")
+if [ -z "$CARGO_VERSION" ]; then
+    echo "get_cargo.sh reads the cargo version from a top-level 'RUST_VERSION = \"<version>\"' line in $module_file, which is missing"
+    exit 1
+fi
 
-# A cached cargo of another version is replaced: update.sh needs this one.
 if [ -x cargo ] && [[ $(./cargo --version) == "cargo $CARGO_VERSION "* ]]; then
     exit 0
 fi
