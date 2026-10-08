@@ -41,7 +41,7 @@ CrateInfo = provider(fields = [
     "build_deps",             # List[target]
     "cargo_entry_point",      # str | None
     "cargo_build_script",     # str | None
-    "cargo_build_deps",       # List[str]: "name@version[+feature...]"
+    "cargo_build_deps",       # Dict[str, struct(version, features)]: the build script's crates, from cargo-build-dep tags
 ])
 
 CargoProjectInfo = provider(fields = [
@@ -115,6 +115,13 @@ rust_cargo_properties_aspect = aspect(
     }
 )
 
+def _parse_cargo_build_dep(value, target):
+    name, _, spec = value.partition("@")
+    version, _, features = spec.partition("+")
+    if not name or not version:
+        fail("malformed cargo-build-dep tag '{}' on target '{}': expected <name>@<version>[+<feature>...]".format(value, target.label))
+    return name, struct(version = version, features = features.split("+") if features else [])
+
 def _tag_value(tag, target):
     parts = tag.split("=", 1)
     if len(parts) != 2 or not parts[1]:
@@ -125,7 +132,7 @@ def _crate_info(ctx, target):
     features = []
     cargo_entry_point = None
     cargo_build_script = None
-    cargo_build_deps = []
+    cargo_build_deps = {}
     if _is_universe_crate(target):
         crate_name = target.label.name
         for tag in ctx.rule.attr.tags:
@@ -145,12 +152,17 @@ def _crate_info(ctx, target):
             elif tag_name == "cargo-build-script":
                 cargo_build_script = _tag_value(tag, target)
             elif tag_name == "cargo-build-dep":
-                cargo_build_deps.append(_tag_value(tag, target))
+                name, build_dep = _parse_cargo_build_dep(_tag_value(tag, target), target)
+                if name in cargo_build_deps:
+                    fail("duplicate cargo-build-dep tag for '{}' on target '{}'".format(name, target.label))
+                cargo_build_deps[name] = build_dep
             elif tag_name.startswith("cargo-"):
                 fail("unrecognized cargo sync tag '{}' on target '{}'".format(tag, target.label))
         if cargo_entry_point or cargo_build_script or cargo_build_deps:
             if _target_type(ctx, target) not in ["bin", "lib"]:
                 fail("cargo sync tags are only supported on rust libraries and binaries, found on '{}'".format(target.label))
+        if cargo_build_deps and not cargo_build_script:
+            fail("cargo-build-dep tags declared without a cargo-build-script tag on target '{}'".format(target.label))
 
     workspace_name = target.label.workspace_name
     crate_path = target.label.package
@@ -298,10 +310,11 @@ def _get_properties(target, ctx, source_files, crate_info):
             properties["entry.point.path"] = _src_relpath(target, ctx, entry_point_file)
         if crate_info.cargo_build_script != None:
             properties["build.script"] = crate_info.cargo_build_script
-            for build_dep in crate_info.cargo_build_deps:
-                properties["build.dep." + _build_dep_name(build_dep)] = _build_dep_location(build_dep)
-        elif len(crate_info.cargo_build_deps) > 0:
-            fail("cargo-build-dep tags declared without a cargo-build-script tag on target '{}'".format(target.label))
+        for name, build_dep in crate_info.cargo_build_deps.items():
+            location = "version={}".format(build_dep.version)
+            if build_dep.features:
+                location += ";enabled.features={}".format(",".join(build_dep.features))
+            properties["build.dep." + name] = location
         if len(_crate_build_deps_info(crate_info)) > 0:
             fail("Build deps support unimplemented")
     if target_type == "test" and ctx.rule.attr.crate == None:
@@ -346,21 +359,6 @@ def _package_path_from_root(label):
 def _crate_build_deps_info(crate_info):
     return [build_dep[CrateInfo].crate_name for build_dep in crate_info.build_deps]
 
-def _build_dep_name(build_dep):
-    return _build_dep_parts(build_dep)[0]
-
-def _build_dep_location(build_dep):
-    version_and_features = _build_dep_parts(build_dep)[1].split("+")
-    location = "version={}".format(version_and_features[0])
-    if len(version_and_features) > 1:
-        location += ";enabled.features={}".format(",".join(version_and_features[1:]))
-    return location
-
-def _build_dep_parts(build_dep):
-    parts = build_dep.split("@")
-    if len(parts) != 2 or not parts[0] or not parts[1].split("+")[0]:
-        fail("cargo-build-dep tag value '{}' must be of the form 'name@version[+feature...]'".format(build_dep))
-    return parts
 
 def _looks_like_cargo_build_script(target):
     return str(target.label).endswith("_")

@@ -20,7 +20,7 @@ fi
 cargo generate-lockfile --quiet
 
 # manifests synced with the publishing flags are not committed: check cargo accepts them, then sync back
+trap '"$SCRIPT_DIR/sync.sh"' EXIT
 "$SCRIPT_DIR/sync.sh" --package-prefix=test-prefix- --version-file=VERSION
 cargo generate-lockfile --quiet
-"$SCRIPT_DIR/sync.sh"
 echo "VERIFY PASSED"

@@ -15,6 +15,7 @@ rust_library(
 
 rust_library(
     name = "lib1_extra",
+    crate_name = "lib1",
     srcs = ["lib.rs"],
     crate_features = ["extra"],
     tags = ["crate-name=lib1", "declared-features=extra"],
