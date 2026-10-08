@@ -513,7 +513,7 @@
     },
     "@@typedb_dependencies+//library/crates:crate_versions.bzl%crate_versions_extension": {
       "general": {
-        "bzlTransitiveDigest": "UL+z+z1mqwtByrA2EpFeKpUFiVfbyiVTUXym/ePDXik=",
+        "bzlTransitiveDigest": "A69MGTbzUg+OBQJlyogMR155B158ZoEA7hrLwfnL3ps=",
         "usagesDigest": "qAQhEO86GE4/Wvh/xzpLlg+CSVug+iPJyCOR7vf82p8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},

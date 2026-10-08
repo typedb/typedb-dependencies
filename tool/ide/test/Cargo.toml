@@ -16,14 +16,14 @@ dependencies = {}
 
 
 [workspace]
-	members = ["build-script-lib", "lib1", "lib2"]
+	members = ["build-script-lib", "lib1", "lib2", "lib3"]
 	resolver = "2"
 
 	[workspace.dependencies]
 
 		[workspace.dependencies.lib1]
 			default-features = false
-			features = []
+			features = ["extra"]
 			path = "lib1"
 
 		[workspace.dependencies.lib2]

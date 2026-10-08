@@ -129,23 +129,28 @@ def _crate_info(ctx, target):
     if _is_universe_crate(target):
         crate_name = target.label.name
         for tag in ctx.rule.attr.tags:
-            if tag.startswith("crate-name"):
+            tag_name = tag.partition("=")[0]
+            if tag_name == "crate-name":
                 crate_name = _tag_value(tag, target)
     else:
         crate_name = ctx.rule.attr.name
         for tag in ctx.rule.attr.tags:
-            if tag.startswith("crate-name"):
+            tag_name = tag.partition("=")[0]
+            if tag_name == "crate-name":
                 crate_name = _tag_value(tag, target)
-            elif tag.startswith("declared-features"):
+            elif tag_name == "declared-features":
                 features = [f.strip() for f in _tag_value(tag, target).split(",") if f.strip()]
-            elif tag.startswith("cargo-entry-point"):
+            elif tag_name == "cargo-entry-point":
                 cargo_entry_point = _tag_value(tag, target)
-            elif tag.startswith("cargo-build-script"):
+            elif tag_name == "cargo-build-script":
                 cargo_build_script = _tag_value(tag, target)
-            elif tag.startswith("cargo-build-dep"):
+            elif tag_name == "cargo-build-dep":
                 cargo_build_deps.append(_tag_value(tag, target))
-            elif tag.startswith("cargo-"):
+            elif tag_name.startswith("cargo-"):
                 fail("unrecognized cargo sync tag '{}' on target '{}'".format(tag, target.label))
+        if cargo_entry_point or cargo_build_script or cargo_build_deps:
+            if _target_type(ctx, target) not in ["bin", "lib"]:
+                fail("cargo sync tags are only supported on rust libraries and binaries, found on '{}'".format(target.label))
 
     workspace_name = target.label.workspace_name
     crate_path = target.label.package
@@ -269,8 +274,11 @@ def _build_cargo_properties_file(target, ctx, source_files, crate_info):
     )
     return properties_file
 
+def _target_type(ctx, target):
+    return "build" if _looks_like_cargo_build_script(target) else _TARGET_TYPES.get(ctx.rule.kind)
+
 def _get_properties(target, ctx, source_files, crate_info):
-    target_type = "build" if _looks_like_cargo_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
+    target_type = _target_type(ctx, target)
 
     properties = {}
     properties["name"] = crate_info.crate_name

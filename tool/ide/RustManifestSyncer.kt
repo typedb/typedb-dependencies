@@ -28,11 +28,9 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_GROU
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.QUERY
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.RUST_TARGETS_QUERY
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.CARGO_TOML
-import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.CARGO_WORKSPACE_SUFFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.EXTERNAL_PLACEHOLDER
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.GITHUB_TYPEDB
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.MANIFEST_PROPERTIES_SUFFIX
-import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_DEPS
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_DEP_PREFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_SCRIPT
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.CRATE_TYPE
@@ -71,7 +69,7 @@ class RustManifestSyncer : Callable<Unit> {
 
     @CommandLine.Option(
         names = ["--package-prefix"], required = false,
-        description = ["Prefix prepended to generated package names (targets with a crate-name tag are used verbatim)"],
+        description = ["Prefix every generated package name must start with, prepended as given if absent in the original name."],
     )
     private var packagePrefix: String? = null
 
@@ -80,7 +78,6 @@ class RustManifestSyncer : Callable<Unit> {
         description = ["File containing the version inherited by all packages via [workspace.package]"],
     )
     private var versionFile: String? = null
-
 
     @CommandLine.Parameters(index = "0")
     private var workspaceRefsLabel: String = ""
@@ -127,7 +124,7 @@ class RustManifestSyncer : Callable<Unit> {
     }
 
     companion object {
-        fun orderedConfig(): Config = Config.of({ LinkedHashMap() }, InMemoryFormat.defaultInstance())
+        private fun orderedConfig(): Config = Config.of({ LinkedHashMap() }, InMemoryFormat.defaultInstance())
 
         private fun rustTargets(shell: Shell, workspace: Path): List<String> {
             return shell.execute(listOf(BAZEL, QUERY, RUST_TARGETS_QUERY), workspace)
@@ -135,12 +132,13 @@ class RustManifestSyncer : Callable<Unit> {
         }
     }
 
-    data class PackageMetadata(
+    private data class PackageMetadata(
         val packagePrefix: String?,
         val version: String?,
     ) {
-        val isEmpty
-            get() = packagePrefix == null && version == null
+        fun packageName(name: String): String {
+            return if (packagePrefix == null || name.startsWith(packagePrefix)) name else packagePrefix + name
+        }
     }
 
     private class WorkspaceSyncer(
@@ -209,10 +207,10 @@ class RustManifestSyncer : Callable<Unit> {
             subConfig.set<List<String>>("members", manifestPaths)
             subConfig.set<String>("resolver", "2")
 
-            if (!packageMetadata.isEmpty) {
+            packageMetadata.version?.let { version ->
                 subConfig.createSubConfig().apply {
                     subConfig.set<Config>("package", this)
-                    packageMetadata.version?.let { set<String>("version", it) }
+                    set<String>("version", version)
                 }
             }
 
@@ -226,7 +224,7 @@ class RustManifestSyncer : Callable<Unit> {
 
             // cargo keys dependencies by package name: a renamed local package must keep its short
             // name as the workspace-dependency key with the actual package name recorded as a rename
-            val localPackageNames = targets.associate { it.name to it.packageName(packageMetadata) }
+            val localPackageNames = targets.associate { it.name to packageMetadata.packageName(it.name) }
 
             subConfig.createSubConfig().apply {
                 subConfig.set<Config>("dependencies", this)
@@ -326,12 +324,6 @@ class RustManifestSyncer : Callable<Unit> {
                 }
             }
 
-            val (buildProperties, nonBuildProperties) = properties.partition { it.type == TargetProperties.Type.BUILD }
-                .let { it.first.associateBy { properties -> properties.name } to it.second }
-            nonBuildProperties.forEach { nbp ->
-                nbp.buildDeps.forEach { buildProperties["${it}_"]?.let { buildProperties -> nbp.buildScripts += buildProperties } }
-            }
-
             val packages =
                 properties.filter { it.type == TargetProperties.Type.LIB || it.type == TargetProperties.Type.BIN }
                     .groupBy { it.cratePath }.values
@@ -345,6 +337,9 @@ class RustManifestSyncer : Callable<Unit> {
         }
 
         private inner class ManifestGenerator(private val properties: TargetProperties) {
+            private val packageName = packageMetadata.packageName(properties.name)
+            private val isRenamed = packageName != properties.name
+
             fun generateManifest(bazelBin: File): File {
                 val outputPath = manifestOutputPath(bazelBin)
                 Files.newOutputStream(outputPath).use {
@@ -362,7 +357,7 @@ class RustManifestSyncer : Callable<Unit> {
 
                 cargoToml.createSubConfig().apply {
                     cargoToml.set<Config>("package", this)
-                    set<String>("name", properties.packageName(packageMetadata))
+                    set<String>("name", packageName)
                     set<String>("edition", properties.edition)
                     if (packageMetadata.version != null) {
                         set<Config>("version", workspaceInherited())
@@ -409,8 +404,8 @@ class RustManifestSyncer : Callable<Unit> {
                     TargetProperties.Type.LIB -> {
                         createSubConfig().apply {
                             this@createEntryPointSubConfig.set<Config>("lib", this)
-                            // when the package is renamed, pin the lib name so the import path is unchanged
-                            if (properties.packageName(packageMetadata) != properties.name) {
+                            // pin the lib name of a renamed package so the import path is unchanged
+                            if (isRenamed) {
                                 set<String>("name", properties.libName())
                             }
                             set<String>("path", entryPointPath)
@@ -449,20 +444,12 @@ class RustManifestSyncer : Callable<Unit> {
                     }
                 }
 
-                if (properties.buildScripts.isNotEmpty() || properties.declaredBuildDeps.isNotEmpty()) {
+                if (properties.buildDeps.isNotEmpty()) {
                     createSubConfig().apply {
                         this@addDevAndBuildDependencies.set<Config>("build-dependencies", this)
-                        properties.buildScripts
-                            .flatMap { it.deps.map { dep -> Pair(it.cargoWorkspaceDir, dep) } }
-                            .distinctBy { (_, dep) -> dep.name }
-                            .filter { (_, dep) -> (dep.name != properties.name) }
-                            .forEach { (cargoWorkspaceDir, dep) ->
-                                set<Config>(
-                                    dep.name,
-                                    dep.toToml(cargoWorkspaceDir, canonicalExternalPathDeps)
-                                )
-                            }
-                        properties.declaredBuildDeps.forEach { dep ->
+                        // default features stay on, matching the universe pin:
+                        // cargo_build_dep_tag rejects pins that disable them
+                        properties.buildDeps.forEach { dep ->
                             val depConfig = orderedConfig()
                             depConfig.set<String>("version", dep.version)
                             if (dep.features.isNotEmpty()) depConfig.set<List<String>>("features", dep.features)
@@ -532,23 +519,13 @@ class RustManifestSyncer : Callable<Unit> {
             val version: String,
             val edition: String?,
             val entryPointPath: Path?,
-            val buildDeps: Collection<String>,
             val deps: Collection<Dependency>,
             val buildScript: String?,
-            val declaredBuildDeps: Collection<Dependency.Crate>,
-            val hasExplicitCrateName: Boolean,
+            val buildDeps: Collection<Dependency.Crate>,
             val bins: MutableCollection<TargetProperties>,
             val tests: MutableCollection<TargetProperties>,
             val benches: MutableCollection<TargetProperties>,
-            val buildScripts: MutableCollection<TargetProperties>,
         ) {
-            val cargoWorkspaceDir get() = path.parentFile.resolve(targetName + CARGO_WORKSPACE_SUFFIX)
-
-            fun packageName(metadata: PackageMetadata): String {
-                return if (metadata.packagePrefix == null || hasExplicitCrateName) name
-                else metadata.packagePrefix + name
-            }
-
             // The extern crate name of this target's library -- the name source imports use.
             // Mirrors how both cargo and rules_rust derive crate names from target names ('-' -> '_').
             fun libName(): String {
@@ -561,27 +538,19 @@ class RustManifestSyncer : Callable<Unit> {
                     canonicalExternalPathDeps: MutableMap<String, String>
                 ): Config
 
-                fun mergeWith(other: Dependency): Dependency {
-                    if (this == other) return this
-                    return when {
-                        this is Crate && other is Crate && version == other.version ->
-                            Crate(name, version, (features + other.features).distinct())
+                abstract fun mergeWith(other: Dependency): Dependency
 
-                        this is Local && other is Local && local_path == other.local_path ->
-                            Local(name, local_path, (features + other.features).distinct())
-
-                        this is Git && other is Git && repoName == other.repoName &&
-                                commit == other.commit && tag == other.tag ->
-                            Git(name, repoName, commit, tag, (features + other.features).distinct())
-
-                        else -> throw IllegalStateException(
-                            "Conflicting definitions of dependency '$name': $this vs $other"
-                        )
-                    }
+                protected fun conflictWith(other: Dependency): IllegalStateException {
+                    return IllegalStateException("Conflicting definitions of dependency '$name': $this vs $other")
                 }
 
                 data class Crate(override val name: String, val version: String, val features: List<String>) :
                     Dependency(name) {
+                    override fun mergeWith(other: Dependency): Dependency {
+                        if (other !is Crate || other.version != version) throw conflictWith(other)
+                        return copy(features = (features + other.features).distinct())
+                    }
+
                     override fun toToml(
                         cargoWorkspaceDir: File,
                         canonicalExternalPathDeps: MutableMap<String, String>
@@ -599,6 +568,11 @@ class RustManifestSyncer : Callable<Unit> {
                     val local_path: String,
                     val features: List<String>,
                 ) : Dependency(name) {
+                    override fun mergeWith(other: Dependency): Dependency {
+                        if (other !is Local || other.local_path != local_path) throw conflictWith(other)
+                        return copy(features = (features + other.features).distinct())
+                    }
+
                     override fun toToml(
                         cargoWorkspaceDir: File,
                         canonicalExternalPathDeps: MutableMap<String, String>
@@ -618,6 +592,13 @@ class RustManifestSyncer : Callable<Unit> {
                     val tag: String?,
                     val features: List<String>,
                 ) : Dependency(name) {
+                    override fun mergeWith(other: Dependency): Dependency {
+                        if (other !is Git || other.repoName != repoName || other.commit != commit || other.tag != tag) {
+                            throw conflictWith(other)
+                        }
+                        return copy(features = (features + other.features).distinct())
+                    }
+
                     override fun toToml(
                         cargoWorkspaceDir: File,
                         canonicalExternalPathDeps: MutableMap<String, String>
@@ -699,7 +680,6 @@ class RustManifestSyncer : Callable<Unit> {
                             path = path,
                             name = props.getProperty(NAME),
                             targetName = props.getProperty(TARGET_NAME),
-                            hasExplicitCrateName = props.getProperty(NAME) != props.getProperty(TARGET_NAME),
                             type = Type.of(props.getProperty(TYPE)),
                             crateTypes = listOf(props.getProperty(CRATE_TYPE)),
                             enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
@@ -707,19 +687,13 @@ class RustManifestSyncer : Callable<Unit> {
                             version = props.getProperty(VERSION),
                             edition = props.getProperty(EDITION, "2024"),
                             deps = parseDependencies(extractDependencyEntries(props), workspaceRefs),
-                            buildDeps = props.getProperty(BUILD_DEPS, "").split(",").filter { it.isNotBlank() },
                             buildScript = props.getProperty(BUILD_SCRIPT),
-                            declaredBuildDeps = parseDeclaredBuildDependencies(
-                                extractDeclaredBuildDependencyEntries(
-                                    props
-                                ), workspaceRefs
-                            ),
+                            buildDeps = parseBuildDependencies(extractBuildDependencyEntries(props), workspaceRefs),
                             entryPointPath = props.getProperty(ENTRY_POINT_PATH)?.let { Path(it) },
                             cratePath = props.getProperty(PATH),
                             bins = mutableListOf(),
                             tests = mutableListOf(),
                             benches = mutableListOf(),
-                            buildScripts = mutableListOf(),
                         )
                     } catch (e: Exception) {
                         throw IllegalStateException("Failed to parse Manifest Sync properties file at $path", e)
@@ -748,7 +722,6 @@ class RustManifestSyncer : Callable<Unit> {
                         val first = package_properties.get(0);
                         return first.copy(
                             name = first.cratePath.replace('/', '-'),
-                            hasExplicitCrateName = false,
                             deps = package_properties.flatMap { it.deps }.distinct(),
                             bins = package_properties.toMutableList(),
                         )
@@ -768,7 +741,7 @@ class RustManifestSyncer : Callable<Unit> {
                     return extractPrefixedEntries(props, "$DEPS_PREFIX.")
                 }
 
-                private fun extractDeclaredBuildDependencyEntries(props: Properties): Map<String, String> {
+                private fun extractBuildDependencyEntries(props: Properties): Map<String, String> {
                     return extractPrefixedEntries(props, "$BUILD_DEP_PREFIX.")
                 }
 
@@ -786,19 +759,18 @@ class RustManifestSyncer : Callable<Unit> {
                     return raw.map { Dependency.of(it.key, it.value, workspaceRefs) }
                 }
 
-                private fun parseDeclaredBuildDependencies(
+                private fun parseBuildDependencies(
                     raw: Map<String, String>,
                     workspaceRefs: JsonObject
                 ): Collection<Dependency.Crate> {
                     return raw.map {
                         Dependency.of(it.key, it.value, workspaceRefs) as? Dependency.Crate
-                            ?: throw IllegalStateException("Declared build dependency '${it.key}' must be a versioned crate dependency")
+                            ?: throw IllegalStateException("Build dependency '${it.key}' must be a versioned crate dependency")
                     }
                 }
             }
 
             private object Keys {
-                const val BUILD_DEPS = "build.deps"
                 const val BUILD_DEP_PREFIX = "build.dep"
                 const val BUILD_SCRIPT = "build.script"
                 const val CRATE_TYPE = "crate_type"
@@ -824,7 +796,6 @@ class RustManifestSyncer : Callable<Unit> {
             const val EXTERNAL = "external"
             const val EXTERNAL_PLACEHOLDER = ".."
             const val MANIFEST_PROPERTIES_SUFFIX = ".cargo.properties"
-            const val CARGO_WORKSPACE_SUFFIX = "-cargo-workspace"
             const val GITHUB_TYPEDB = "https://github.com/typedb/"
         }
 
