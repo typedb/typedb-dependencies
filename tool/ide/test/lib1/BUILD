@@ -9,6 +9,17 @@ load("@typedb_dependencies//tool/checkstyle:rules.bzl", "checkstyle_test")
 rust_library(
     name = "lib1",
     srcs = ["lib.rs"],
+    tags = ["declared-features=extra"],
+    visibility = ["//visibility:public"],
+)
+
+rust_library(
+    name = "lib1_extra",
+    crate_name = "lib1",
+    srcs = ["lib.rs"],
+    crate_features = ["extra"],
+    tags = ["declared-features=extra"],
+    visibility = ["//visibility:public"],
 )
 
 rust_test(

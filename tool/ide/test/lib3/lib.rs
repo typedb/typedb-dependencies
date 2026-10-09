@@ -4,6 +4,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-pub fn uses_lib1() {
+pub fn uses_lib1_extra() {
     lib1::exported();
 }
