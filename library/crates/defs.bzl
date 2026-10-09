@@ -15,4 +15,6 @@ def cargo_build_dep_tag(crate):
     pin = CRATE_PINS[crate]
     if not pin["default_features"]:
         fail("crate '{}' disables default features in the crate universe, but cargo-build-dep tags keep them".format(crate))
+    if "+" in pin["version"]:
+        fail("crate '{}' is pinned with build metadata ('{}'), but '+' separates features in cargo-build-dep tags".format(crate, pin["version"]))
     return "cargo-build-dep={}@{}".format(crate, "+".join([pin["version"]] + pin["features"]))
