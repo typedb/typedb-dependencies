@@ -30,16 +30,10 @@ class ManifestWriter : Callable<Unit> {
     @CommandLine.Option(names = ["--output", "-o"], required = true)
     private lateinit var outputPath: Path
 
-    @CommandLine.Parameters
-    private var buildPropertiesFiles: List<Path> = listOf()
-
     private lateinit var properties: TargetProperties
-    private lateinit var buildProperties: List<TargetProperties>
 
     override fun call() {
-        buildProperties = buildPropertiesFiles.map { TargetProperties.fromPropertiesFile(it) }
         properties = TargetProperties.fromPropertiesFile(rootPropertiesFile)
-        properties.attach(buildProperties)
 
         Files.newOutputStream(outputPath).write(manifestContent(properties).toByteArray(StandardCharsets.UTF_8))
     }
@@ -61,7 +55,6 @@ class ManifestWriter : Callable<Unit> {
             properties.deps.forEach { set<Config>(it.name, it.toToml()) }
         }
 
-        cargoToml.addBuildDependencies()
 
         // Add empty [workspace] to prevent cargo from walking up to find a parent workspace
         // This is needed on Windows where Bazel sandboxing doesn't fully isolate the execroot
@@ -89,19 +82,7 @@ class ManifestWriter : Callable<Unit> {
                 }
             }
 
-            TargetProperties.Type.TEST, TargetProperties.Type.BUILD -> throw IllegalStateException("Cargo manifest should not be generated for sync properties of type ${properties.type}")
-        }
-    }
-
-    private fun Config.addBuildDependencies() {
-        if (properties.buildScripts.isNotEmpty()) {
-            createSubConfig().apply {
-                this@addBuildDependencies.set<Config>("build-dependencies", this)
-                properties.buildScripts.flatMap { it.deps }
-                        .distinctBy { it.name }
-                        .filter { it.name != properties.name }
-                        .forEach { set<Config>(it.name, it.toToml()) }
-            }
+            TargetProperties.Type.TEST -> throw IllegalStateException("Cargo manifest should not be generated for sync properties of type ${properties.type}")
         }
     }
 
@@ -122,11 +103,7 @@ class ManifestWriter : Callable<Unit> {
             val edition: String?,
             val entryPointPath: Path?,
             val deps: Collection<Dependency>,
-            var buildScripts: Collection<TargetProperties>,
     ) {
-        fun attach(properties: List<TargetProperties>) {
-            buildScripts = properties
-        }
 
         companion object {
             fun fromPropertiesFile(path: Path): TargetProperties {
@@ -140,7 +117,6 @@ class ManifestWriter : Callable<Unit> {
                             edition = props.getProperty(Keys.EDITION, "2021"),
                             deps = parseDependencies(extractDependencyEntries(props)),
                             entryPointPath = props.getProperty(Keys.ENTRY_POINT_PATH)?.let { Path(it) },
-                            buildScripts = listOf(),
                     )
                 } catch (e: Exception) {
                     throw IllegalStateException("Failed to parse Manifest Sync properties file at $path", e)
@@ -162,8 +138,7 @@ class ManifestWriter : Callable<Unit> {
         enum class Type {
             LIB,
             BIN,
-            TEST,
-            BUILD;
+            TEST;
 
             companion object {
                 fun of(value: String): Type {
@@ -171,7 +146,6 @@ class ManifestWriter : Callable<Unit> {
                         "lib" -> LIB
                         "bin" -> BIN
                         "test" -> TEST
-                        "build" -> BUILD
                         else -> throw IllegalArgumentException()
                     }
                 }
