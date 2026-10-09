@@ -12,7 +12,7 @@ def _parse_pin(spec, line):
     if spec.startswith("\"") and spec.endswith("\""):
         return {"version": spec[1:-1], "features": [], "default_features": True}
     if not spec.startswith("{") or not spec.endswith("}"):
-        fail("unsupported entry in crate universe manifest: {}".format(line))
+        fail("unsupported entry in crate universe manifest, expected a version string or a one-line inline table: {}".format(line))
 
     parts = spec.split("\"")
     syntax = "".join(parts[0::2]).replace(" ", "")
@@ -32,6 +32,13 @@ def _parse_pin(spec, line):
         fail("no version in crate universe manifest entry: {}".format(line))
     return {"version": version, "features": features, "default_features": "default-features=false" not in syntax}
 
+def _without_comment(line):
+    parts = line.split("\"")
+    for i in range(0, len(parts), 2):
+        if "#" in parts[i]:
+            return "\"".join(parts[:i] + [parts[i].partition("#")[0]]).strip()
+    return line
+
 def _merge_pins(name, pin, other):
     if pin["version"] != other["version"]:
         fail("crate '{}' is pinned at two versions in the crate universe manifest".format(name))
@@ -45,12 +52,12 @@ def _crate_versions_repository_impl(repository_ctx):
     pins = {}
     section = None
     for line in repository_ctx.read(repository_ctx.attr.manifest).splitlines():
-        line = line.strip()
+        line = _without_comment(line.strip())
         if line.startswith("["):
             section = line
             if "dependencies" in section and section not in _DEPENDENCY_SECTIONS:
                 fail("unsupported section in crate universe manifest: {}".format(section))
-        elif section in _DEPENDENCY_SECTIONS and line and not line.startswith("#"):
+        elif section in _DEPENDENCY_SECTIONS and line:
             name, _, spec = line.partition("=")
             name = name.strip().strip("\"")
             pin = _parse_pin(spec.strip(), line)

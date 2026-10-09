@@ -68,7 +68,7 @@ class RustManifestSyncer : Callable<Unit> {
 
     @CommandLine.Option(
         names = ["--package-prefix"], required = false,
-        description = ["Prefix every generated package name must start with, prepended as given if absent in the original name."],
+        description = ["Prefix every generated package name must start with, prepended as given if absent in the original name ('-' and '_' match each other)."],
     )
     private var packagePrefix: String? = null
 
@@ -136,7 +136,14 @@ class RustManifestSyncer : Callable<Unit> {
         val version: String?,
     ) {
         fun packageName(name: String): String {
-            return if (packagePrefix == null || name.startsWith(packagePrefix)) name else packagePrefix + name
+            return if (packagePrefix == null || hasPrefix(name, packagePrefix)) name else packagePrefix + name
+        }
+
+        // crates.io treats '-' and '_' as the same
+        private fun hasPrefix(name: String, prefix: String): Boolean {
+            val normalisedName = name.replace('_', '-')
+            val normalisedPrefix = prefix.replace('_', '-')
+            return normalisedName.startsWith(normalisedPrefix) || normalisedName == normalisedPrefix.trimEnd('-')
         }
     }
 
@@ -214,7 +221,7 @@ class RustManifestSyncer : Callable<Unit> {
 
             // the same dependency may be requested with different feature sets by different targets,
             // the workspace-level entry is their union
-            val allDeps = targets.flatMap { arrayOf(listOf(it), it.tests, it.benches).flatMap { it } }
+            val allDeps = targets.flatMap { listOf(it) + it.tests + it.benches }
                 .flatMap { it.deps }
                 .distinct()
                 .groupBy { it.name }
@@ -268,7 +275,7 @@ class RustManifestSyncer : Callable<Unit> {
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
             return findSyncPropertiesFiles(bazelBin)
                 .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
-                .groupBy { Pair(it.name, it.cratePath) }.values
+                .groupBy { Triple(it.name, it.cratePath, it.type) }.values
                 .map { TargetProperties.mergeList(it) }
                 .run { attachTestsAndBenches(this) }
         }
@@ -418,7 +425,7 @@ class RustManifestSyncer : Callable<Unit> {
                         }
                     }
 
-                    TargetProperties.Type.TEST, TargetProperties.Type.BUILD -> throw IllegalStateException(
+                    TargetProperties.Type.TEST -> throw IllegalStateException(
                         "$CARGO_TOML should not be generated for sync properties of type ${properties.type}"
                     )
                 }
@@ -639,8 +646,7 @@ class RustManifestSyncer : Callable<Unit> {
             enum class Type {
                 LIB,
                 BIN,
-                TEST,
-                BUILD;
+                TEST;
 
                 companion object {
                     fun of(value: String): Type {
@@ -648,7 +654,6 @@ class RustManifestSyncer : Callable<Unit> {
                             "lib" -> LIB
                             "bin" -> BIN
                             "test" -> TEST
-                            "build" -> BUILD
                             else -> throw IllegalArgumentException()
                         }
                     }
@@ -695,8 +700,8 @@ class RustManifestSyncer : Callable<Unit> {
                         )
                     };
                     return base.copy(
-                        entryPointPath = sharedSetting(base.name, "entry points", all_properties.map { it.entryPointPath }),
-                        buildScript = sharedSetting(base.name, "build scripts", all_properties.map { it.buildScript }),
+                        entryPointPath = sharedSetting(base.name, "entry points", all_properties) { it.entryPointPath },
+                        buildScript = sharedSetting(base.name, "build scripts", all_properties) { it.buildScript },
                     );
                 }
 
@@ -711,7 +716,7 @@ class RustManifestSyncer : Callable<Unit> {
                         return first.copy(
                             name = name,
                             deps = package_properties.flatMap { it.deps }.distinct(),
-                            buildScript = sharedSetting(name, "build scripts", package_properties.map { it.buildScript }),
+                            buildScript = sharedSetting(name, "build scripts", package_properties) { it.buildScript },
                             bins = package_properties.toMutableList(),
                         )
                     } else {
@@ -721,16 +726,23 @@ class RustManifestSyncer : Callable<Unit> {
                         }
                         return lib.copy(
                             deps = package_properties.flatMap { it.deps }.filter { it.name != lib.name }.distinct(),
-                            buildScript = sharedSetting(lib.name, "build scripts", package_properties.map { it.buildScript }),
+                            buildScript = sharedSetting(lib.name, "build scripts", package_properties) { it.buildScript },
                             bins = bins.toMutableList(),
                         )
                     }
                 }
 
-                private fun <T : Any> sharedSetting(crate: String, setting: String, values: List<T?>): T? {
-                    val declared = values.filterNotNull().distinct()
-                    check(declared.size <= 1) { "Targets of crate '$crate' declare different $setting: $declared" }
-                    return declared.singleOrNull()
+                private fun <T : Any> sharedSetting(
+                    crate: String,
+                    setting: String,
+                    targets: List<TargetProperties>,
+                    value: (TargetProperties) -> T?,
+                ): T? {
+                    val declared = targets.mapNotNull { target -> value(target)?.let { target.targetName to it } }
+                    check(declared.map { it.second }.distinct().size <= 1) {
+                        "Targets of crate '$crate' declare different $setting: ${declared.joinToString { "${it.first}: ${it.second}" }}"
+                    }
+                    return declared.firstOrNull()?.second
                 }
 
                 private fun extractDependencyEntries(props: Properties): Map<String, String> {

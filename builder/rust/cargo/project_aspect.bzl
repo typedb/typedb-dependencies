@@ -28,6 +28,10 @@ _DEFAULT_RUST_EDITION = "2024"
 _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
 
+_SYNC_TAGS = ["crate-name", "declared-features", "cargo-entry-point", "cargo-build-script", "cargo-build-dep"]
+
+_RULES_RUST_TAGS = ["cargo-bazel"]
+
 CrateInfo = provider(fields = [
     "kind",                   # str
     "crate_name",             # str
@@ -38,7 +42,6 @@ CrateInfo = provider(fields = [
     "features",               # List[str]
     "deps",                   # List[target]
     "transitive_deps",        # List[target]
-    "build_deps",             # List[target]
     "cargo_entry_point",      # str | None
     "cargo_build_script",     # str | None
     "cargo_build_deps",       # Dict[str, struct(version, features)]: the build script's crates, from cargo-build-dep tags
@@ -95,6 +98,8 @@ def _rust_cargo_properties_aspect_impl(target, ctx):
         return []
 
     crate_info = _crate_info(ctx, target)
+    if _target_type(ctx, target) == "build":
+        return [crate_info]
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
     properties_file = _build_cargo_properties_file(target, ctx, sources, crate_info)
 
@@ -122,12 +127,6 @@ def _parse_cargo_build_dep(value, target):
         fail("malformed cargo-build-dep tag '{}' on target '{}': expected <name>@<version>[+<feature>...]".format(value, target.label))
     return name, struct(version = version, features = features.split("+") if features else [])
 
-def _tag_value(tag, target):
-    parts = tag.split("=", 1)
-    if len(parts) != 2 or not parts[1]:
-        fail("malformed tag '{}' on target '{}': expected <name>=<value>".format(tag, target.label))
-    return parts[1]
-
 def _crate_info(ctx, target):
     features = []
     cargo_entry_point = None
@@ -136,33 +135,39 @@ def _crate_info(ctx, target):
     if _is_universe_crate(target):
         crate_name = target.label.name
         for tag in ctx.rule.attr.tags:
-            tag_name = tag.partition("=")[0]
+            tag_name, _, tag_value = tag.partition("=")
             if tag_name == "crate-name":
-                crate_name = _tag_value(tag, target)
+                crate_name = tag_value
     else:
-        crate_name = ctx.rule.attr.name
+        crate_name = getattr(ctx.rule.attr, "crate_name", "") or ctx.rule.attr.name
         for tag in ctx.rule.attr.tags:
-            tag_name = tag.partition("=")[0]
+            tag_name, _, tag_value = tag.partition("=")
+            if tag_name not in _SYNC_TAGS:
+                if tag_name.startswith("cargo-") and tag_name not in _RULES_RUST_TAGS:
+                    fail("unrecognized cargo sync tag '{}' on target '{}'".format(tag, target.label))
+                continue
+            if not tag_value:
+                fail("malformed tag '{}' on target '{}': expected <name>=<value>".format(tag, target.label))
             if tag_name == "crate-name":
-                crate_name = _tag_value(tag, target)
+                crate_name = tag_value
             elif tag_name == "declared-features":
-                features = [f.strip() for f in _tag_value(tag, target).split(",") if f.strip()]
+                features = [f.strip() for f in tag_value.split(",") if f.strip()]
             elif tag_name == "cargo-entry-point":
-                cargo_entry_point = _tag_value(tag, target)
+                cargo_entry_point = tag_value
             elif tag_name == "cargo-build-script":
-                cargo_build_script = _tag_value(tag, target)
+                cargo_build_script = tag_value
             elif tag_name == "cargo-build-dep":
-                name, build_dep = _parse_cargo_build_dep(_tag_value(tag, target), target)
+                name, build_dep = _parse_cargo_build_dep(tag_value, target)
                 if name in cargo_build_deps:
                     fail("duplicate cargo-build-dep tag for '{}' on target '{}'".format(name, target.label))
                 cargo_build_deps[name] = build_dep
-            elif tag_name.startswith("cargo-"):
-                fail("unrecognized cargo sync tag '{}' on target '{}'".format(tag, target.label))
         if cargo_entry_point or cargo_build_script or cargo_build_deps:
             if _target_type(ctx, target) not in ["bin", "lib"]:
                 fail("cargo sync tags are only supported on rust libraries and binaries, found on '{}'".format(target.label))
         if cargo_build_deps and not cargo_build_script:
             fail("cargo-build-dep tags declared without a cargo-build-script tag on target '{}'".format(target.label))
+        if _target_type(ctx, target) in ["bin", "lib"] and _cargo_build_script_deps(ctx):
+            fail("rules_rust cargo_build_script dependencies are not supported on '{}': use the cargo-build-script and cargo-build-dep tags instead".format(target.label))
 
     workspace_name = target.label.workspace_name
     crate_path = target.label.package
@@ -179,7 +184,6 @@ def _crate_info(ctx, target):
         features = features,
         deps = deps,
         transitive_deps = transitive_deps,
-        build_deps = _crate_build_deps(ctx, target),
         cargo_entry_point = cargo_entry_point,
         cargo_build_script = cargo_build_script,
         cargo_build_deps = cargo_build_deps,
@@ -189,10 +193,9 @@ def _generate_cargo_project(ctx, target, crate_info, properties_file, sources):
     workspace_root = target.label.name + "-cargo-workspace"
 
     manifest_file = ctx.actions.declare_file(workspace_root + "/" + crate_info.crate_name + "/Cargo.toml")
-    build_deps = []
-    args = ["--properties", properties_file.path, "--output", manifest_file.path] + [f.path for f in build_deps]
+    args = ["--properties", properties_file.path, "--output", manifest_file.path]
     ctx.actions.run(
-        inputs = build_deps + [properties_file],
+        inputs = [properties_file],
         outputs = [manifest_file],
         executable = ctx.executable._manifest_writer,
         arguments = args,
@@ -208,7 +211,7 @@ def _generate_cargo_project(ctx, target, crate_info, properties_file, sources):
 
     workspace_files = [manifest_file] + list(project_sources.values())
 
-    for dep in crate_info.transitive_deps + crate_info.build_deps:
+    for dep in crate_info.transitive_deps:
         if CargoProjectInfo in dep:
             dep_info = dep[CrateInfo]
             project_info = dep[CargoProjectInfo]
@@ -238,7 +241,7 @@ def _transitive_crate_deps(deps):
 def _crate_deps(ctx, target):
     return [dep for dep in _all_deps(ctx) if _TARGET_TYPES[dep[CrateInfo].kind] in ["bin", "lib"]]
 
-def _crate_build_deps(ctx, target):
+def _cargo_build_script_deps(ctx):
     return [dep for dep in _deps(ctx) if _TARGET_TYPES[dep[CrateInfo].kind] == "build"]
 
 def _deps(ctx):
@@ -287,7 +290,7 @@ def _build_cargo_properties_file(target, ctx, source_files, crate_info):
     return properties_file
 
 def _target_type(ctx, target):
-    return "build" if _looks_like_cargo_build_script(target) else _TARGET_TYPES.get(ctx.rule.kind)
+    return "build" if _looks_like_cargo_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
 
 def _get_properties(target, ctx, source_files, crate_info):
     target_type = _target_type(ctx, target)
@@ -315,8 +318,6 @@ def _get_properties(target, ctx, source_files, crate_info):
             if build_dep.features:
                 location += ";enabled.features={}".format(",".join(build_dep.features))
             properties["build.dep." + name] = location
-        if len(_crate_build_deps_info(crate_info)) > 0:
-            fail("Build deps support unimplemented")
     if target_type == "test" and ctx.rule.attr.crate == None:
        entry_point_file = _entry_point_file(target, ctx, source_files)
        properties["entry.point.path"] = _src_relpath(target, ctx, entry_point_file)
@@ -355,9 +356,6 @@ def _package_relative_path_to_root(label):
 
 def _package_path_from_root(label):
     return label.package
-
-def _crate_build_deps_info(crate_info):
-    return [build_dep[CrateInfo].crate_name for build_dep in crate_info.build_deps]
 
 
 def _looks_like_cargo_build_script(target):
