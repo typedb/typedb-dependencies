@@ -244,10 +244,10 @@ def _transitive_crate_deps(deps):
     return transitive_deps
 
 def _crate_deps(ctx, target):
-    return [dep for dep in _all_deps(ctx) if _TARGET_TYPES[dep[CrateInfo].kind] in ["bin", "lib"]]
+    return [dep for dep in _all_deps(ctx) if dep[CrateInfo].target_type in ["bin", "lib"]]
 
 def _cargo_build_script_deps(ctx):
-    return [dep for dep in _deps(ctx) if _TARGET_TYPES[dep[CrateInfo].kind] == "build"]
+    return [dep for dep in _deps(ctx) if dep[CrateInfo].target_type == "build"]
 
 def _deps(ctx):
     return [dep for dep in getattr(ctx.rule.attr, "deps", []) if CrateInfo in dep]
@@ -321,7 +321,7 @@ def _get_properties(target, ctx, source_files, crate_info):
 def _cargo_sync_properties(crate_info):
     properties = {}
     if crate_info.cargo_entry_point != None:
-        properties["entry.point.path"] = crate_info.cargo_entry_point
+        properties["cargo.entry.point.path"] = crate_info.cargo_entry_point
     if crate_info.cargo_build_script != None:
         properties["build.script"] = crate_info.cargo_build_script
     for name, build_dep in crate_info.cargo_build_deps.items():

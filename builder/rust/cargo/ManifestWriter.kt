@@ -55,7 +55,6 @@ class ManifestWriter : Callable<Unit> {
             properties.deps.forEach { set<Config>(it.name, it.toToml()) }
         }
 
-
         // Add empty [workspace] to prevent cargo from walking up to find a parent workspace
         // This is needed on Windows where Bazel sandboxing doesn't fully isolate the execroot
         cargoToml.set<Config>("workspace", Config.inMemory())
@@ -104,7 +103,6 @@ class ManifestWriter : Callable<Unit> {
             val entryPointPath: Path?,
             val deps: Collection<Dependency>,
     ) {
-
         companion object {
             fun fromPropertiesFile(path: Path): TargetProperties {
                 val props = Properties().apply { load(FileInputStream(path.toString())) }

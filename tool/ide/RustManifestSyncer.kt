@@ -32,6 +32,7 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.MANIFEST_PROPERTIES_SUFFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_DEP_PREFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.BUILD_SCRIPT
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.CARGO_ENTRY_POINT_PATH
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.CRATE_TYPE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.DEPS_PREFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.EDITION
@@ -291,7 +292,6 @@ class RustManifestSyncer : Callable<Unit> {
             val TESTS_DIR = "tests"
             val BENCHES_DIR = "benches" // we translate Bazel Tests in 'benches' into Cargo benchmarks
             val (testProperties, nonTestProperties) = properties.partition { it.type == TargetProperties.Type.TEST }
-                .let { it.first to it.second.associateBy { properties -> properties.name } }
             testProperties.forEach { tp ->
                 // attach tests deps to the parent properties
                 var path = tp.path.toPath()
@@ -313,7 +313,7 @@ class RustManifestSyncer : Callable<Unit> {
                 } else {
                     throw RuntimeException("Could not find directory named '$TESTS_DIR' or '$BENCHES_DIR' for Bazel test target '${tp.name}'.");
                 }
-                var parent = nonTestProperties.values.filter { it.path.parentFile.toPath().equals(path.parent) };
+                var parent = nonTestProperties.filter { it.path.parentFile.toPath().equals(path.parent) };
                 if (parent.size > 1) {
                     logger.debug { "Found ${parent.size} parents to attach test '${tp.name}' to, discarding binaries..." }
                     parent = parent.filter { it.type != TargetProperties.Type.BIN };
@@ -520,6 +520,7 @@ class RustManifestSyncer : Callable<Unit> {
             val version: String,
             val edition: String?,
             val entryPointPath: Path?,
+            val cargoEntryPointPath: Path?,
             val deps: Collection<Dependency>,
             val buildScript: BuildScript?,
             val bins: MutableCollection<TargetProperties>,
@@ -679,6 +680,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 BuildScript(it, parseBuildDependencies(extractBuildDependencyEntries(props), workspaceRefs))
                             },
                             entryPointPath = props.getProperty(ENTRY_POINT_PATH)?.let { Path(it) },
+                            cargoEntryPointPath = props.getProperty(CARGO_ENTRY_POINT_PATH)?.let { Path(it) },
                             cratePath = props.getProperty(PATH),
                             bins = mutableListOf(),
                             tests = mutableListOf(),
@@ -700,7 +702,8 @@ class RustManifestSyncer : Callable<Unit> {
                         )
                     };
                     return base.copy(
-                        entryPointPath = sharedSetting(base.name, "entry points", all_properties) { it.entryPointPath },
+                        entryPointPath = sharedSetting(base.name, "cargo entry points", all_properties) { it.cargoEntryPointPath }
+                            ?: sharedSetting(base.name, "entry points", all_properties) { it.entryPointPath },
                         buildScript = sharedSetting(base.name, "build scripts", all_properties) { it.buildScript },
                     );
                 }
@@ -781,6 +784,7 @@ class RustManifestSyncer : Callable<Unit> {
             private object Keys {
                 const val BUILD_DEP_PREFIX = "build.dep"
                 const val BUILD_SCRIPT = "build.script"
+                const val CARGO_ENTRY_POINT_PATH = "cargo.entry.point.path"
                 const val CRATE_TYPE = "crate_type"
                 const val DEPS_PREFIX = "deps"
                 const val EDITION = "edition"
