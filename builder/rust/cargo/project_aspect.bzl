@@ -20,7 +20,6 @@ _CRATE_TYPES = {
     "rust_binary": "bin",
     "rust_proc_macro": "proc-macro",
     "rust_test": "test",
-    "_build_script_run": "N/A"
 }
 
 _DEFAULT_RUST_EDITION = "2024"
@@ -104,9 +103,7 @@ def _rust_cargo_properties_aspect_impl(target, ctx):
     if crate_info.target_type == "build":
         return [crate_info]
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
-    properties = _get_properties(target, ctx, sources, crate_info)
-    properties.update(_cargo_sync_properties(crate_info))
-    properties_file = _build_cargo_properties_file(ctx, properties)
+    properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
     return [
         crate_info,
@@ -179,7 +176,7 @@ def _crate_info(ctx, target):
                 fail("cargo sync tags are only supported on rust libraries and binaries, found on '{}'".format(target.label))
         if cargo_build_deps and not cargo_build_script:
             fail("cargo-build-dep tags declared without a cargo-build-script tag on target '{}'".format(target.label))
-        if target_type in ["bin", "lib"] and _cargo_build_script_deps(ctx):
+        if target_type in ["bin", "lib"] and _rules_rust_build_script_deps(ctx):
             fail("rules_rust cargo_build_script dependencies are not supported on '{}': use the cargo-build-script and cargo-build-dep tags instead".format(target.label))
 
     workspace_name = target.label.workspace_name
@@ -255,7 +252,7 @@ def _transitive_crate_deps(deps):
 def _crate_deps(ctx, target):
     return [dep for dep in _all_deps(ctx) if dep[CrateInfo].target_type in ["bin", "lib"]]
 
-def _cargo_build_script_deps(ctx):
+def _rules_rust_build_script_deps(ctx):
     return [dep for dep in _deps(ctx) if dep[CrateInfo].target_type == "build"]
 
 def _deps(ctx):
@@ -302,7 +299,7 @@ def _build_cargo_properties_file(ctx, properties):
     return properties_file
 
 def _target_type(ctx, target):
-    return "build" if ctx.rule.kind == "rust_binary" and _looks_like_cargo_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
+    return "build" if ctx.rule.kind == "rust_binary" and _looks_like_rules_rust_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
 
 def _get_properties(target, ctx, source_files, crate_info):
     target_type = crate_info.target_type
@@ -325,10 +322,6 @@ def _get_properties(target, ctx, source_files, crate_info):
        properties["entry.point.path"] = _src_relpath(target, ctx, entry_point_file)
     for dep in _crate_deps_info(target, crate_info).items():
         properties["deps." + dep[0]] = dep[1]
-    return properties
-
-def _cargo_sync_properties(crate_info):
-    properties = {}
     if crate_info.cargo_entry_point != None:
         properties["cargo.entry.point.path"] = crate_info.cargo_entry_point
     if crate_info.cargo_build_script != None:
@@ -361,18 +354,10 @@ def _crate_deps_info(target, crate_info):
 def _is_external_target(target):
     return target.label.workspace_root.startswith("external/")
 
-def _package_relative_path_to_root(label):
-    package_path = label.package.strip()
-    if len(package_path) == 0:
-        return "."
-    else:
-        dirs_to_root = package_path.count("/") + 1
-        return "/".join([".."] * dirs_to_root)
-
 def _package_path_from_root(label):
     return label.package
 
-def _looks_like_cargo_build_script(target):
+def _looks_like_rules_rust_build_script(target):
     return str(target.label).endswith("_")
 
 def _entry_point_file(target, ctx, source_files):

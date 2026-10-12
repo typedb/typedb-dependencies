@@ -190,7 +190,7 @@ class RustManifestSyncer : Callable<Unit> {
             val workspaceManifest = manifests.stream().filter { it.toPath().parent.equals(workspace) }
                 .findFirst()
             val cargoWorkspaceConfig = createCargoWorkspace(manifests, targets);
-            val cargoWorkspaceString = writeSortedToml(cargoWorkspaceConfig)
+            val cargoWorkspaceString = (if (workspaceManifest.isPresent) "\n" else GENERATED_FILE_NOTICE) + writeSortedToml(cargoWorkspaceConfig)
 
             Files.newOutputStream(rootTomlPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE).use {
                 it.write(cargoWorkspaceString.toByteArray(StandardCharsets.UTF_8))
@@ -223,10 +223,17 @@ class RustManifestSyncer : Callable<Unit> {
             // the same dependency may be requested with different feature sets by different targets,
             // the workspace-level entry is their union
             val allDeps = targets.flatMap { listOf(it) + it.tests + it.benches }
-                .flatMap { it.deps }
+                .flatMap { crate -> crate.deps.map { crate.name to it } }
                 .distinct()
-                .groupBy { it.name }
-                .map { (_, variants) -> variants.reduce { merged, next -> merged.mergeWith(next) } }
+                .groupBy { (_, dep) -> dep.name }
+                .map { (name, requests) ->
+                    requests.map { it.second }.distinct().reduce { merged, next ->
+                        merged.mergeWith(next) ?: throw IllegalStateException(
+                            "Crates request dependency '$name' at conflicting versions or sources: " +
+                                requests.groupBy({ it.second }, { it.first }).entries.joinToString("; ") { (dep, crates) -> "$dep by ${crates.joinToString()}" }
+                        )
+                    }
+                }
 
             val localPackageNames = targets.associate { it.name to packageMetadata.packageName(it.name) }
 
@@ -254,7 +261,7 @@ class RustManifestSyncer : Callable<Unit> {
         private fun writeSortedToml(config: Config): String {
             val copy = orderedConfig()
             config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = valueDeepSorted(value) }
-            return TomlWriter().writeToString(copy.unmodifiable())
+            return TomlWriter().writeToString(copy.unmodifiable()).trim() + "\n"
         }
 
         private fun valueDeepSorted(value: Any?): Any? = when (value) {
@@ -278,6 +285,11 @@ class RustManifestSyncer : Callable<Unit> {
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
             return findSyncPropertiesFiles(bazelBin)
                 .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
+                .onEach {
+                    check(packageMetadata.version == null || it.declaredVersion() == null) {
+                        "Target '${it.targetName}' sets version ${it.version}, which --version-file would override"
+                    }
+                }
                 // targets spelling one crate differently are grouped so that mergeList rejects them by name
                 .groupBy { Triple(it.libName(), it.cratePath, it.type) }.values
                 .map { TargetProperties.mergeList(it) }
@@ -368,9 +380,6 @@ class RustManifestSyncer : Callable<Unit> {
                     set<String>("name", packageName)
                     set<String>("edition", properties.edition)
                     if (packageMetadata.version != null) {
-                        check(properties.version == UNSET_VERSION) {
-                            "Target '${properties.targetName}' sets version ${properties.version}, which --version-file would override"
-                        }
                         set<Config>("version", workspaceInherited())
                     } else {
                         set<String>("version", properties.version)
@@ -400,7 +409,7 @@ class RustManifestSyncer : Callable<Unit> {
                 cargoToml.addBenches()
                 cargoToml.addTests()
 
-                return GENERATED_FILE_NOTICE + writeSortedToml(cargoToml).trimStart()
+                return GENERATED_FILE_NOTICE + writeSortedToml(cargoToml)
             }
 
             private fun workspaceInherited(): Config {
@@ -539,21 +548,19 @@ class RustManifestSyncer : Callable<Unit> {
                 return name.replace('-', '_')
             }
 
+            fun declaredVersion(): String? = version.takeIf { it != UNSET_VERSION }
+
             data class BuildScript(val path: String, val deps: Set<Dependency.Crate>)
 
             sealed class Dependency(open val name: String) {
                 abstract fun toToml(): Config
 
-                abstract fun mergeWith(other: Dependency): Dependency
-
-                protected fun conflictWith(other: Dependency): IllegalStateException {
-                    return IllegalStateException("Conflicting definitions of dependency '$name': $this vs $other")
-                }
+                abstract fun mergeWith(other: Dependency): Dependency?
 
                 data class Crate(override val name: String, val version: String, val features: List<String>) :
                     Dependency(name) {
-                    override fun mergeWith(other: Dependency): Dependency {
-                        if (other !is Crate || other.version != version) throw conflictWith(other)
+                    override fun mergeWith(other: Dependency): Dependency? {
+                        if (other !is Crate || other.version != version) return null
                         return copy(features = (features + other.features).distinct())
                     }
 
@@ -571,8 +578,8 @@ class RustManifestSyncer : Callable<Unit> {
                     val local_path: String,
                     val features: List<String>,
                 ) : Dependency(name) {
-                    override fun mergeWith(other: Dependency): Dependency {
-                        if (other !is Local || other.local_path != local_path) throw conflictWith(other)
+                    override fun mergeWith(other: Dependency): Dependency? {
+                        if (other !is Local || other.local_path != local_path) return null
                         return copy(features = (features + other.features).distinct())
                     }
 
@@ -592,9 +599,9 @@ class RustManifestSyncer : Callable<Unit> {
                     val tag: String?,
                     val features: List<String>,
                 ) : Dependency(name) {
-                    override fun mergeWith(other: Dependency): Dependency {
+                    override fun mergeWith(other: Dependency): Dependency? {
                         if (other !is Git || other.repoName != repoName || other.commit != commit || other.tag != tag) {
-                            throw conflictWith(other)
+                            return null
                         }
                         return copy(features = (features + other.features).distinct())
                     }
@@ -709,6 +716,8 @@ class RustManifestSyncer : Callable<Unit> {
                     };
                     return base.copy(
                         name = sharedSetting(base.name, "crate names", all_properties) { it.name }!!,
+                        version = sharedSetting(base.name, "versions", all_properties) { it.declaredVersion() } ?: UNSET_VERSION,
+                        edition = sharedSetting(base.name, "editions", all_properties) { it.edition },
                         entryPointPath = sharedSetting(base.name, "cargo entry points", all_properties) { it.cargoEntryPointPath }
                             ?: sharedSetting(base.name, "entry points", all_properties) { it.entryPointPath },
                         cargoEntryPointPath = null,
@@ -720,27 +729,19 @@ class RustManifestSyncer : Callable<Unit> {
                     if (package_properties.size == 1) {
                         return package_properties.get(0);
                     }
-                    var lib = package_properties.firstOrNull { it.type == TargetProperties.Type.LIB }
-                    if (lib == null) {
-                        val first = package_properties.get(0);
-                        val name = first.cratePath.replace('/', '-')
-                        return first.copy(
-                            name = name,
-                            deps = package_properties.flatMap { it.deps }.distinct(),
-                            buildScript = sharedSetting(name, "build scripts", package_properties) { it.buildScript },
-                            bins = package_properties.toMutableList(),
-                        )
-                    } else {
-                        val (libs, bins) = package_properties.partition { it.type == TargetProperties.Type.LIB }
-                        if (libs.size > 1) {
-                            throw IllegalStateException("Found too many distinct libs post-merge at ${lib.cratePath}: ${libs.map { it.name }}")
-                        }
-                        return lib.copy(
-                            deps = package_properties.flatMap { it.deps }.filter { it.name != lib.name }.distinct(),
-                            buildScript = sharedSetting(lib.name, "build scripts", package_properties) { it.buildScript },
-                            bins = bins.toMutableList(),
-                        )
+                    val (libs, bins) = package_properties.partition { it.type == TargetProperties.Type.LIB }
+                    if (libs.size > 1) {
+                        throw IllegalStateException("Found too many distinct libs post-merge at ${libs[0].cratePath}: ${libs.map { it.name }}")
                     }
+                    val lib = libs.firstOrNull()
+                    val base = lib ?: bins[0].copy(name = bins[0].cratePath.replace('/', '-'))
+                    return base.copy(
+                        version = sharedSetting(base.name, "versions", package_properties) { it.declaredVersion() } ?: UNSET_VERSION,
+                        edition = sharedSetting(base.name, "editions", package_properties) { it.edition },
+                        deps = package_properties.flatMap { it.deps }.filter { it.name != lib?.name }.distinct(),
+                        buildScript = sharedSetting(base.name, "build scripts", package_properties) { it.buildScript },
+                        bins = bins.toMutableList(),
+                    )
                 }
 
                 private fun <T : Any> sharedSetting(
@@ -816,8 +817,7 @@ class RustManifestSyncer : Callable<Unit> {
         companion object {
             const val UNSET_VERSION = "0.0.0"
             const val GENERATED_FILE_NOTICE =
-                """
-# Generated by TypeDB Cargo sync tool.
+                """# Generated by TypeDB Cargo sync tool.
 # Do not modify this file.
 
 """
