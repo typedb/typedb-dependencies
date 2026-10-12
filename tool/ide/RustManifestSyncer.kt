@@ -228,8 +228,6 @@ class RustManifestSyncer : Callable<Unit> {
                 .groupBy { it.name }
                 .map { (_, variants) -> variants.reduce { merged, next -> merged.mergeWith(next) } }
 
-            // cargo keys dependencies by package name: a renamed local package must keep its short
-            // name as the workspace-dependency key with the actual package name recorded as a rename
             val localPackageNames = targets.associate { it.name to packageMetadata.packageName(it.name) }
 
             subConfig.createSubConfig().apply {
@@ -237,10 +235,12 @@ class RustManifestSyncer : Callable<Unit> {
                 allDeps.forEach { dep ->
                     val depToml = dep.toToml()
                     if (dep is TargetProperties.Dependency.Local) {
-                        localPackageNames[dep.name]?.let { packageName ->
-                            if (packageName != dep.name) depToml.set<String>("package", packageName)
-                            packageMetadata.version?.let { depToml.set<String>("version", it) }
-                        }
+                        // cargo keys dependencies by package name: a renamed local package keeps its short
+                        // name as the key, with the actual package name recorded as a rename
+                        val packageName = localPackageNames.getValue(dep.name)
+                        if (packageName != dep.name) depToml.set<String>("package", packageName)
+                        // cargo package/publish drops path, so a path dependency also needs a version requirement
+                        packageMetadata.version?.let { depToml.set<String>("version", it) }
                     }
                     set<Config>(dep.name, depToml)
                 }
@@ -277,7 +277,7 @@ class RustManifestSyncer : Callable<Unit> {
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
             return findSyncPropertiesFiles(bazelBin)
                 .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
-                .groupBy { Triple(it.name, it.cratePath, it.type) }.values
+                .groupBy { Triple(it.name.replace('-', '_'), it.cratePath, it.type) }.values
                 .map { TargetProperties.mergeList(it) }
                 .run { attachTestsAndBenches(this) }
         }
@@ -706,6 +706,7 @@ class RustManifestSyncer : Callable<Unit> {
                         )
                     };
                     return base.copy(
+                        name = sharedSetting(base.name, "crate names", all_properties) { it.name }!!,
                         entryPointPath = sharedSetting(base.name, "cargo entry points", all_properties) { it.cargoEntryPointPath }
                             ?: sharedSetting(base.name, "entry points", all_properties) { it.entryPointPath },
                         cargoEntryPointPath = null,
@@ -730,7 +731,7 @@ class RustManifestSyncer : Callable<Unit> {
                     } else {
                         val (libs, bins) = package_properties.partition { it.type == TargetProperties.Type.LIB }
                         if (libs.size > 1) {
-                            throw IllegalStateException("Found too many distinct libs post-merge at $lib.cratePath: ${libs.map { it.name }}")
+                            throw IllegalStateException("Found too many distinct libs post-merge at ${lib.cratePath}: ${libs.map { it.name }}")
                         }
                         return lib.copy(
                             deps = package_properties.flatMap { it.deps }.filter { it.name != lib.name }.distinct(),

@@ -79,10 +79,13 @@ crate_versions_repository = repository_rule(
     },
 )
 
-def _crate_versions_extension_impl(_module_ctx):
+def fetch_crate_versions():
     crate_versions_repository(
         name = "crate_versions",
         manifest = Label("//library/crates:Cargo.toml"),
     )
+
+def _crate_versions_extension_impl(_module_ctx):
+    fetch_crate_versions()
 
 crate_versions_extension = module_extension(implementation = _crate_versions_extension_impl)

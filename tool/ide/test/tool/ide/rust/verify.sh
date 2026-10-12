@@ -25,5 +25,6 @@ cargo generate-lockfile --quiet
 # manifests synced with the publishing flags are not committed: check cargo can package them, then sync back
 trap '"$SCRIPT_DIR/sync.sh"' EXIT
 "$SCRIPT_DIR/sync.sh" --package-prefix=test- --version-file=VERSION
+# packaging members that depend on each other through unpublished path dependencies needs cargo 1.90+ (library/crates/get_cargo.sh fetches the pinned one)
 cargo package --workspace --no-verify --allow-dirty --quiet
 echo "VERIFY PASSED"
