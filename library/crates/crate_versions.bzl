@@ -8,6 +8,8 @@
 
 _DEPENDENCY_SECTIONS = ["[dependencies]", "[dev-dependencies]", "[build-dependencies]"]
 
+_PIN_KEYS = ["version", "features", "default-features"]
+
 def _parse_pin(spec, line):
     if spec.startswith("\"") and spec.endswith("\""):
         return {"version": spec[1:-1], "features": [], "default_features": True}
@@ -16,8 +18,9 @@ def _parse_pin(spec, line):
 
     parts = spec.split("\"")
     syntax = "".join(parts[0::2]).replace(" ", "")
-    if "package=" in syntax:
-        fail("renamed dependency in crate universe manifest: {}".format(line))
+    for key in [entry.partition("=")[0] for entry in syntax.strip("{}").split(",") if "=" in entry]:
+        if key not in _PIN_KEYS:
+            fail("unsupported key '{}' in crate universe manifest entry: {}".format(key, line))
     version = None
     features = []
     in_features = False
@@ -60,6 +63,8 @@ def _crate_versions_repository_impl(repository_ctx):
         elif section in _DEPENDENCY_SECTIONS and line:
             name, _, spec = line.partition("=")
             name = name.strip().strip("\"")
+            if "." in name:
+                fail("unsupported dotted key in crate universe manifest: {}".format(line))
             pin = _parse_pin(spec.strip(), line)
             if name in pins:
                 pin = _merge_pins(name, pins[name], pin)

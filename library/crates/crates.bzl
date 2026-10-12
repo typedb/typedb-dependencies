@@ -9,6 +9,7 @@
 
 load("@rules_rust//crate_universe:deps_bootstrap.bzl", "cargo_bazel_bootstrap")
 load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "render_config")
+load(":crate_versions.bzl", "crate_versions_repository")
 
 def fetch_crates():
     crates_repository(
@@ -26,4 +27,8 @@ def fetch_crates():
             "x86_64-pc-windows-msvc",
             "x86_64-unknown-linux-gnu",
         ],
+    )
+    crate_versions_repository(
+        name = "crate_versions",
+        manifest = "@typedb_dependencies//library/crates:Cargo.toml",
     )

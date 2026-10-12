@@ -10,12 +10,6 @@
 
 workspace(name = "typedb_dependencies")
 
-load("//library/crates:crate_versions.bzl", "crate_versions_repository")
-crate_versions_repository(
-    name = "crate_versions",
-    manifest = "//library/crates:Cargo.toml",
-)
-
 ################################
 # Load @typedb_dependencies #
 ################################

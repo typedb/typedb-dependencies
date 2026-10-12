@@ -22,8 +22,8 @@ fi
 # a manifest can be deterministic and still wrong, so also check that cargo accepts it
 cargo generate-lockfile --quiet
 
-# manifests synced with the publishing flags are not committed: check cargo accepts them, then sync back
+# manifests synced with the publishing flags are not committed: check cargo can package them, then sync back
 trap '"$SCRIPT_DIR/sync.sh"' EXIT
-"$SCRIPT_DIR/sync.sh" --package-prefix=test-prefix- --version-file=VERSION
-cargo generate-lockfile --quiet
+"$SCRIPT_DIR/sync.sh" --package-prefix=test- --version-file=VERSION
+cargo package --workspace --no-verify --allow-dirty --quiet
 echo "VERIFY PASSED"

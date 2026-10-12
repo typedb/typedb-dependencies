@@ -60,6 +60,8 @@ def _rust_cargo_project_aspect_impl(target, ctx):
         return []
 
     crate_info = _crate_info(ctx, target)
+    if crate_info.target_type == "build":
+        return [crate_info]
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
     properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
@@ -125,10 +127,10 @@ rust_cargo_properties_aspect = aspect(
 
 def _parse_cargo_build_dep(value, target):
     name, _, spec = value.partition("@")
-    version, _, features = spec.partition("+")
-    if not name or not version:
+    version_and_features = spec.split("+")
+    if not name or "" in version_and_features:
         fail("malformed cargo-build-dep tag '{}' on target '{}': expected <name>@<version>[+<feature>...]".format(value, target.label))
-    return name, struct(version = version, features = features.split("+") if features else [])
+    return name, struct(version = version_and_features[0], features = version_and_features[1:])
 
 def _crate_info(ctx, target):
     target_type = _target_type(ctx, target)
@@ -143,7 +145,9 @@ def _crate_info(ctx, target):
             if tag_name == "crate-name":
                 crate_name = tag_value
     else:
-        crate_name = getattr(ctx.rule.attr, "crate_name", "") or ctx.rule.attr.name
+        crate_name_attribute = getattr(ctx.rule.attr, "crate_name", "")
+        crate_name = crate_name_attribute or ctx.rule.attr.name
+        seen_tag_names = []
         for tag in ctx.rule.attr.tags:
             tag_name, _, tag_value = tag.partition("=")
             if tag_name not in _SYNC_TAGS:
@@ -152,7 +156,12 @@ def _crate_info(ctx, target):
                 continue
             if not tag_value:
                 fail("malformed tag '{}' on target '{}': expected <name>=<value>".format(tag, target.label))
+            if tag_name in seen_tag_names and tag_name != "cargo-build-dep":
+                fail("repeated {} tag on target '{}'".format(tag_name, target.label))
+            seen_tag_names.append(tag_name)
             if tag_name == "crate-name":
+                if crate_name_attribute and tag_value.replace("-", "_") != crate_name_attribute:
+                    fail("crate-name tag '{}' disagrees with crate_name '{}' on target '{}'".format(tag_value, crate_name_attribute, target.label))
                 crate_name = tag_value
             elif tag_name == "declared-features":
                 features = [f.strip() for f in tag_value.split(",") if f.strip()]
@@ -293,7 +302,7 @@ def _build_cargo_properties_file(ctx, properties):
     return properties_file
 
 def _target_type(ctx, target):
-    return "build" if _looks_like_cargo_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
+    return "build" if ctx.rule.kind == "rust_binary" and _looks_like_cargo_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
 
 def _get_properties(target, ctx, source_files, crate_info):
     target_type = crate_info.target_type
@@ -362,7 +371,6 @@ def _package_relative_path_to_root(label):
 
 def _package_path_from_root(label):
     return label.package
-
 
 def _looks_like_cargo_build_script(target):
     return str(target.label).endswith("_")
