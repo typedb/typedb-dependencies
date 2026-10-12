@@ -9,7 +9,7 @@ cd "$SCRIPT_DIR/../../.."
 
 "$SCRIPT_DIR/sync.sh"
 
-CHANGED="$(git status --porcelain -- . | grep 'Cargo\.toml' || true)"
+CHANGED="$(git status --porcelain -uall -- . | grep 'Cargo\.toml' || true)"
 if [ -n "$CHANGED" ]; then
     echo "$CHANGED"
     git --no-pager diff -- '*Cargo.toml*'

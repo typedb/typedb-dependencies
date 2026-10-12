@@ -222,8 +222,12 @@ class RustManifestSyncer : Callable<Unit> {
 
             // the same dependency may be requested with different feature sets by different targets,
             // the workspace-level entry is their union
-            val allDeps = targets.flatMap { listOf(it) + it.tests + it.benches }
-                .flatMap { crate -> crate.deps.map { crate.name to it } }
+            val allDeps = targets
+                .flatMap { crate ->
+                    (listOf(crate) + crate.tests + crate.benches).flatMap { it.deps }
+                        .filter { it.name != crate.name }
+                        .map { crate.name to it }
+                }
                 .distinct()
                 .groupBy { (_, dep) -> dep.name }
                 .map { (name, requests) ->
@@ -417,7 +421,7 @@ class RustManifestSyncer : Callable<Unit> {
             }
 
             private fun Config.createEntryPointSubConfig() {
-                val entryPointPath = properties.entryPointPath.toString()
+                val entryPoint = properties.entryPoint().toString()
 
                 when (properties.type) {
                     TargetProperties.Type.LIB -> {
@@ -427,7 +431,7 @@ class RustManifestSyncer : Callable<Unit> {
                             if (isRenamed) {
                                 set<String>("name", properties.libName())
                             }
-                            set<String>("path", entryPointPath)
+                            set<String>("path", entryPoint)
                             set<List<String>>("crate-type", properties.crateTypes)
                         }
                     }
@@ -436,7 +440,7 @@ class RustManifestSyncer : Callable<Unit> {
                         createSubConfig().apply {
                             this@createEntryPointSubConfig.set<List<Config>>("bin", listOf(this))
                             set<String>("name", properties.name)
-                            set<String>("path", entryPointPath)
+                            set<String>("path", entryPoint)
                         }
                     }
 
@@ -478,9 +482,9 @@ class RustManifestSyncer : Callable<Unit> {
             private fun Config.addBins() {
                 if (properties.bins.isNotEmpty()) {
                     val mapped = properties.bins.map {
-                        if (it.entryPointPath != null) {
+                        if (it.entryPoint() != null) {
                             val path =
-                                Path(properties.cratePath).relativize(Path(it.cratePath)).resolve(it.entryPointPath)
+                                Path(properties.cratePath).relativize(Path(it.cratePath)).resolve(it.entryPoint())
                             createSubConfig().apply {
                                 this.set<String>("name", it.name);
                                 this.set<String>("path", path.toString());
@@ -507,8 +511,8 @@ class RustManifestSyncer : Callable<Unit> {
 
             private fun Config.addTests() {
                 val mapped = properties.tests.map {
-                    if (it.entryPointPath != null) {
-                        val path = Path(properties.cratePath).relativize(Path(it.cratePath)).resolve(it.entryPointPath)
+                    if (it.entryPoint() != null) {
+                        val path = Path(properties.cratePath).relativize(Path(it.cratePath)).resolve(it.entryPoint())
                         createSubConfig().apply {
                             this.set<String>("name", it.name)
                             this.set<String>("path", path.toString());
@@ -549,6 +553,8 @@ class RustManifestSyncer : Callable<Unit> {
             }
 
             fun declaredVersion(): String? = version.takeIf { it != UNSET_VERSION }
+
+            fun entryPoint(): Path? = cargoEntryPointPath ?: entryPointPath
 
             data class BuildScript(val path: String, val deps: Set<Dependency.Crate>)
 
@@ -714,15 +720,13 @@ class RustManifestSyncer : Callable<Unit> {
                             deps = (base.deps + properties.deps).distinct(),
                         )
                     };
+                    val cargoEntryPointPath = sharedSetting("cargo entry points", all_properties) { it.cargoEntryPointPath }
                     return base.copy(
-                        name = sharedSetting(base.name, "crate names", all_properties) { it.name }!!,
-                        version = sharedSetting(base.name, "versions", all_properties) { it.declaredVersion() } ?: UNSET_VERSION,
-                        edition = sharedSetting(base.name, "editions", all_properties) { it.edition },
-                        entryPointPath = sharedSetting(base.name, "cargo entry points", all_properties) { it.cargoEntryPointPath }
-                            ?: sharedSetting(base.name, "entry points", all_properties) { it.entryPointPath },
-                        cargoEntryPointPath = null,
-                        buildScript = sharedSetting(base.name, "build scripts", all_properties) { it.buildScript },
-                    );
+                        name = sharedSetting("crate names", all_properties) { it.name }!!,
+                        cargoEntryPointPath = cargoEntryPointPath,
+                        entryPointPath = if (cargoEntryPointPath != null) base.entryPointPath
+                            else sharedSetting("entry points", all_properties) { it.entryPointPath },
+                    ).withSharedSettings(all_properties)
                 }
 
                 fun mergePackage(package_properties: List<TargetProperties>): TargetProperties {
@@ -736,23 +740,27 @@ class RustManifestSyncer : Callable<Unit> {
                     val lib = libs.firstOrNull()
                     val base = lib ?: bins[0].copy(name = bins[0].cratePath.replace('/', '-'))
                     return base.copy(
-                        version = sharedSetting(base.name, "versions", package_properties) { it.declaredVersion() } ?: UNSET_VERSION,
-                        edition = sharedSetting(base.name, "editions", package_properties) { it.edition },
                         deps = package_properties.flatMap { it.deps }.filter { it.name != lib?.name }.distinct(),
-                        buildScript = sharedSetting(base.name, "build scripts", package_properties) { it.buildScript },
                         bins = bins.toMutableList(),
+                    ).withSharedSettings(package_properties)
+                }
+
+                private fun TargetProperties.withSharedSettings(targets: List<TargetProperties>): TargetProperties {
+                    return copy(
+                        version = sharedSetting("versions", targets) { it.declaredVersion() } ?: UNSET_VERSION,
+                        edition = sharedSetting("editions", targets) { it.edition },
+                        buildScript = sharedSetting("build scripts", targets) { it.buildScript },
                     )
                 }
 
                 private fun <T : Any> sharedSetting(
-                    crate: String,
                     setting: String,
                     targets: List<TargetProperties>,
                     value: (TargetProperties) -> T?,
                 ): T? {
                     val declared = targets.mapNotNull { target -> value(target)?.let { target.targetName to it } }
                     check(declared.map { it.second }.distinct().size <= 1) {
-                        "Targets of crate '$crate' declare different $setting: ${declared.joinToString { "${it.first}: ${it.second}" }}"
+                        "Targets in //${targets[0].cratePath} declare different $setting: ${declared.joinToString { "${it.first}: ${it.second}" }}"
                     }
                     return declared.firstOrNull()?.second
                 }

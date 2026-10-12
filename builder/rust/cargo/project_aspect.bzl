@@ -10,7 +10,7 @@ _TARGET_TYPES = {
     "rust_binary": "bin",
     "rust_proc_macro": "lib",
     "rust_test": "test",
-    "_build_script_run": "build"
+    "cargo_build_script": "build",
 }
 
 _CRATE_TYPES = {
@@ -28,6 +28,8 @@ _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
 
 _SYNC_TAGS = ["crate-name", "declared-features", "cargo-entry-point", "cargo-build-script", "cargo-build-dep"]
+
+_SYNC_TAG_PREFIXES = [tag.partition("-")[0] + "-" for tag in _SYNC_TAGS]
 
 _RULES_RUST_TAGS = ["cargo-bazel"]
 
@@ -148,7 +150,7 @@ def _crate_info(ctx, target):
         for tag in ctx.rule.attr.tags:
             tag_name, _, tag_value = tag.partition("=")
             if tag_name not in _SYNC_TAGS:
-                if tag_name.startswith("cargo-") and tag_name not in _RULES_RUST_TAGS:
+                if tag_name not in _RULES_RUST_TAGS and any([tag_name.replace("_", "-").startswith(prefix) for prefix in _SYNC_TAG_PREFIXES]):
                     fail("unrecognized cargo sync tag '{}' on target '{}'".format(tag, target.label))
                 continue
             if not tag_value:
@@ -176,7 +178,7 @@ def _crate_info(ctx, target):
                 fail("cargo sync tags are only supported on rust libraries and binaries, found on '{}'".format(target.label))
         if cargo_build_deps and not cargo_build_script:
             fail("cargo-build-dep tags declared without a cargo-build-script tag on target '{}'".format(target.label))
-        if target_type in ["bin", "lib"] and _rules_rust_build_script_deps(ctx):
+        if _rules_rust_build_script_deps(ctx):
             fail("rules_rust cargo_build_script dependencies are not supported on '{}': use the cargo-build-script and cargo-build-dep tags instead".format(target.label))
 
     workspace_name = target.label.workspace_name
@@ -335,9 +337,13 @@ def _get_properties(target, ctx, source_files, crate_info):
 
 def _crate_deps_info(target, crate_info):
     deps_info = {}
+    dep_labels = {}
 
     for dependency in crate_info.deps:
         dependency_info = dependency[CrateInfo]
+        if dep_labels.setdefault(dependency_info.crate_name, dependency.label) != dependency.label:
+            fail("target '{}' depends on two crates named '{}': '{}' and '{}'".format(
+                target.label, dependency_info.crate_name, dep_labels[dependency_info.crate_name], dependency.label))
         if _is_universe_crate(dependency):
             location = "version={}".format(dependency_info.version)
         elif not _is_external_target(target) and _is_external_target(dependency):

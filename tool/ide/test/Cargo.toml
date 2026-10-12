@@ -20,8 +20,3 @@
 			default-features = false
 			features = ["extra"]
 			path = "lib1"
-
-		[workspace.dependencies.lib2]
-			default-features = false
-			features = []
-			path = "lib2"
