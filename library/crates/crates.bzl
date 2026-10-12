@@ -9,7 +9,7 @@
 
 load("@rules_rust//crate_universe:deps_bootstrap.bzl", "cargo_bazel_bootstrap")
 load("@rules_rust//crate_universe:defs.bzl", "crate", "crates_repository", "render_config")
-load(":crate_versions.bzl", "fetch_crate_versions")
+load(":crate_pins.bzl", "fetch_crate_pins")
 
 def fetch_crates():
     crates_repository(
@@ -28,4 +28,4 @@ def fetch_crates():
             "x86_64-unknown-linux-gnu",
         ],
     )
-    fetch_crate_versions()
+    fetch_crate_pins()

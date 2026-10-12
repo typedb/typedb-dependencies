@@ -237,7 +237,8 @@ class RustManifestSyncer : Callable<Unit> {
                     if (dep is TargetProperties.Dependency.Local) {
                         // cargo keys dependencies by package name: a renamed local package keeps its short
                         // name as the key, with the actual package name recorded as a rename
-                        val packageName = localPackageNames.getValue(dep.name)
+                        val packageName = localPackageNames[dep.name]
+                            ?: throw IllegalStateException("Local dependency '${dep.name}' is not a workspace crate")
                         if (packageName != dep.name) depToml.set<String>("package", packageName)
                         // cargo package/publish drops path, so a path dependency also needs a version requirement
                         packageMetadata.version?.let { depToml.set<String>("version", it) }
@@ -277,7 +278,8 @@ class RustManifestSyncer : Callable<Unit> {
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
             return findSyncPropertiesFiles(bazelBin)
                 .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
-                .groupBy { Triple(it.name.replace('-', '_'), it.cratePath, it.type) }.values
+                // targets spelling one crate differently are grouped so that mergeList rejects them by name
+                .groupBy { Triple(it.libName(), it.cratePath, it.type) }.values
                 .map { TargetProperties.mergeList(it) }
                 .run { attachTestsAndBenches(this) }
         }

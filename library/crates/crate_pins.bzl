@@ -51,7 +51,7 @@ def _merge_pins(name, pin, other):
         "default_features": pin["default_features"] or other["default_features"],
     }
 
-def _crate_versions_repository_impl(repository_ctx):
+def _crate_pins_repository_impl(repository_ctx):
     pins = {}
     section = None
     for line in repository_ctx.read(repository_ctx.attr.manifest).splitlines():
@@ -70,22 +70,22 @@ def _crate_versions_repository_impl(repository_ctx):
                 pin = _merge_pins(name, pins[name], pin)
             pins[name] = pin
     repository_ctx.file("BUILD", "")
-    repository_ctx.file("versions.bzl", "CRATE_PINS = {}\n".format(str(pins)))
+    repository_ctx.file("pins.bzl", "CRATE_PINS = {}\n".format(str(pins)))
 
-crate_versions_repository = repository_rule(
-    implementation = _crate_versions_repository_impl,
+crate_pins_repository = repository_rule(
+    implementation = _crate_pins_repository_impl,
     attrs = {
         "manifest": attr.label(allow_single_file = True, mandatory = True),
     },
 )
 
-def fetch_crate_versions():
-    crate_versions_repository(
-        name = "crate_versions",
+def fetch_crate_pins():
+    crate_pins_repository(
+        name = "crate_pins",
         manifest = Label("//library/crates:Cargo.toml"),
     )
 
-def _crate_versions_extension_impl(_module_ctx):
-    fetch_crate_versions()
+def _crate_pins_extension_impl(_module_ctx):
+    fetch_crate_pins()
 
-crate_versions_extension = module_extension(implementation = _crate_versions_extension_impl)
+crate_pins_extension = module_extension(implementation = _crate_pins_extension_impl)

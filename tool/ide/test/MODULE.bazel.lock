@@ -511,16 +511,16 @@
         ]
       }
     },
-    "@@typedb_dependencies+//library/crates:crate_versions.bzl%crate_versions_extension": {
+    "@@typedb_dependencies+//library/crates:crate_pins.bzl%crate_pins_extension": {
       "general": {
-        "bzlTransitiveDigest": "rSyTokDkzJOWr/dTN3IIr/0PkFrQtRSzS8b+1ZQuKy4=",
-        "usagesDigest": "qAQhEO86GE4/Wvh/xzpLlg+CSVug+iPJyCOR7vf82p8=",
+        "bzlTransitiveDigest": "Ggg7RjDSa1fvdVbVN3GofjqT/aCu4vpAMVEQOvZ/gSs=",
+        "usagesDigest": "2u6zqtQmLePtXG0hi4Q9D0Csc/7Z9fiSDoNEZ+3RTSw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
-          "crate_versions": {
-            "repoRuleId": "@@typedb_dependencies+//library/crates:crate_versions.bzl%crate_versions_repository",
+          "crate_pins": {
+            "repoRuleId": "@@typedb_dependencies+//library/crates:crate_pins.bzl%crate_pins_repository",
             "attributes": {
               "manifest": "@@typedb_dependencies+//library/crates:Cargo.toml"
             }
