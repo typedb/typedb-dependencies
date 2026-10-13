@@ -8,8 +8,10 @@ load("@crate_pins//:pins.bzl", "CRATE_PINS")
 # and features pinned in this repo's crate universe (library/crates/Cargo.toml), which the Bazel side builds with.
 def cargo_build_dep_tag(crate):
     if crate not in CRATE_PINS:
-        fail("crate '{}' is not pinned in the typedb-dependencies crate universe (library/crates/Cargo.toml)".format(crate))
+        fail("crate '{}' has no one-line entry under [dependencies], [dev-dependencies] or [build-dependencies] in the typedb-dependencies crate universe (library/crates/Cargo.toml)".format(crate))
     pin = CRATE_PINS[crate]
+    if "error" in pin:
+        fail("crate '{}' has no usable pin: {}".format(crate, pin["error"]))
     if not pin["default_features"]:
         fail("crate '{}' disables default features in the crate universe, but cargo-build-dep tags keep them".format(crate))
     if "+" in pin["version"]:

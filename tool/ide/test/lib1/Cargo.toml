@@ -12,3 +12,8 @@
 [lib]
 	crate-type = ["lib"]
 	path = "lib.rs"
+
+[dev-dependencies]
+
+	[dev-dependencies.lib2]
+		workspace = true

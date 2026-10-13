@@ -25,6 +25,7 @@ rust_library(
 rust_test(
     name = "lib1_unit_tests",
     crate = ":lib1",
+    deps = ["//lib2"],
 )
 
 checkstyle_test(

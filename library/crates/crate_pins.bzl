@@ -4,9 +4,10 @@
 
 # Exposes the crate pins (version, features, default-features) of the crate universe manifest
 # (library/crates/Cargo.toml) as loadable Starlark values, so BUILD files can reference a pin
-# instead of duplicating it.
+# instead of duplicating it. An entry this parser does not support is recorded as an error for its crate
+# alone, so only BUILD files that request that crate fail.
 
-_DEPENDENCY_SECTIONS = ["[dependencies]", "[dev-dependencies]", "[build-dependencies]"]
+_DEPENDENCY_TABLES = ["dependencies", "dev-dependencies", "build-dependencies"]
 
 _PIN_KEYS = ["version", "features", "default-features"]
 
@@ -14,13 +15,13 @@ def _parse_pin(spec, line):
     if spec.startswith("\"") and spec.endswith("\""):
         return {"version": spec[1:-1], "features": [], "default_features": True}
     if not spec.startswith("{") or not spec.endswith("}"):
-        fail("unsupported entry in crate universe manifest, expected a version string or a one-line inline table: {}".format(line))
+        return _unsupported("expected a version string or a one-line inline table", line)
 
     parts = spec.split("\"")
     syntax = "".join(parts[0::2]).replace(" ", "")
     for key in [entry.partition("=")[0] for entry in syntax.strip("{}").split(",") if "=" in entry]:
         if key not in _PIN_KEYS:
-            fail("unsupported key '{}' in crate universe manifest entry: {}".format(key, line))
+            return _unsupported("unsupported key '{}'".format(key), line)
     version = None
     features = []
     in_features = False
@@ -32,8 +33,11 @@ def _parse_pin(spec, line):
         if in_features:
             features.append(parts[i])
     if not version:
-        fail("no version in crate universe manifest entry: {}".format(line))
+        return _unsupported("no version", line)
     return {"version": version, "features": features, "default_features": "default-features=false" not in syntax}
+
+def _unsupported(reason, line):
+    return {"error": "{} in crate universe manifest entry: {}".format(reason, line)}
 
 def _without_comment(line):
     parts = line.split("\"")
@@ -42,33 +46,47 @@ def _without_comment(line):
             return "\"".join(parts[:i] + [parts[i].partition("#")[0]]).strip()
     return line
 
-def _merge_pins(name, pin, other):
+def _merge_pins(pin, other):
+    if "error" in pin:
+        return pin
+    if "error" in other:
+        return other
     if pin["version"] != other["version"]:
-        fail("crate '{}' is pinned at two versions in the crate universe manifest".format(name))
+        return {"error": "pinned at two versions in the crate universe manifest: {} and {}".format(pin["version"], other["version"])}
     return {
         "version": pin["version"],
         "features": pin["features"] + [f for f in other["features"] if f not in pin["features"]],
         "default_features": pin["default_features"] or other["default_features"],
     }
 
+def _add_pin(pins, name, pin):
+    pins[name] = _merge_pins(pins[name], pin) if name in pins else pin
+
 def _crate_pins_repository_impl(repository_ctx):
     pins = {}
-    section = None
+    section = ""
+    continued = False
     for line in repository_ctx.read(repository_ctx.attr.manifest).splitlines():
         line = _without_comment(line.strip())
-        if line.startswith("["):
+        if continued:
+            continued = not line.endswith("}")
+        elif line.startswith("["):
             section = line
-            if "dependencies" in section and section not in _DEPENDENCY_SECTIONS:
-                fail("unsupported section in crate universe manifest: {}".format(section))
-        elif section in _DEPENDENCY_SECTIONS and line:
-            name, _, spec = line.partition("=")
-            name = name.strip().strip("\"")
-            if "." in name:
-                fail("unsupported dotted key in crate universe manifest: {}".format(line))
-            pin = _parse_pin(spec.strip(), line)
-            if name in pins:
-                pin = _merge_pins(name, pins[name], pin)
-            pins[name] = pin
+            table, dot, crate = section.strip("[]").partition(".")
+            if table in _DEPENDENCY_TABLES and dot:
+                _add_pin(pins, crate.strip("\""), _unsupported("unsupported table section", section))
+        elif line and section.endswith("dependencies]"):
+            key, _, spec = line.partition("=")
+            name, dot, _ = key.strip().strip("\"").partition(".")
+            spec = spec.strip()
+            continued = spec.startswith("{") and not spec.endswith("}")
+            if section.strip("[]") not in _DEPENDENCY_TABLES:
+                pin = _unsupported("unsupported section " + section, line)
+            elif dot:
+                pin = _unsupported("unsupported dotted key", line)
+            else:
+                pin = _parse_pin(spec, line)
+            _add_pin(pins, name, pin)
     repository_ctx.file("BUILD", "")
     repository_ctx.file("pins.bzl", "CRATE_PINS = {}\n".format(str(pins)))
 

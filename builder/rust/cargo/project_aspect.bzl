@@ -31,10 +31,7 @@ _SYNC_TAGS = ["crate-name", "declared-features", "cargo-entry-point", "cargo-bui
 
 _SYNC_TAG_PREFIXES = [tag.partition("-")[0] + "-" for tag in _SYNC_TAGS]
 
-_RULES_RUST_TAGS = ["cargo-bazel"]
-
 CrateInfo = provider(fields = [
-    "kind",                   # str
     "target_type",            # str: "lib", "bin", "test" or "build"
     "crate_name",             # str
     "workspace_name",         # str
@@ -66,7 +63,7 @@ def _rust_cargo_project_aspect_impl(target, ctx):
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
     properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
-    if _should_generate_cargo_project(target, crate_info):
+    if _should_generate_cargo_project(ctx, target):
         cargo_project_info = _generate_cargo_project(ctx, target, crate_info, properties_file, sources)
         return [
             crate_info,
@@ -95,7 +92,7 @@ rust_cargo_project_aspect = aspect(
 )
 
 # TODO: Consider merging with `rust_cargo_project_aspect`
-# (isolate from `if _should_generate_cargo_project(target, crate_info)`)
+# (isolate from `if _should_generate_cargo_project(ctx, target)`)
 def _rust_cargo_properties_aspect_impl(target, ctx):
     if ctx.rule.kind not in _TARGET_TYPES.keys():
         # not a crate
@@ -150,7 +147,7 @@ def _crate_info(ctx, target):
         for tag in ctx.rule.attr.tags:
             tag_name, _, tag_value = tag.partition("=")
             if tag_name not in _SYNC_TAGS:
-                if tag_name not in _RULES_RUST_TAGS and any([tag_name.replace("_", "-").startswith(prefix) for prefix in _SYNC_TAG_PREFIXES]):
+                if any([tag_name.replace("_", "-").startswith(prefix) for prefix in _SYNC_TAG_PREFIXES]):
                     fail("unrecognized cargo sync tag '{}' on target '{}'".format(tag, target.label))
                 continue
             if not tag_value:
@@ -187,7 +184,6 @@ def _crate_info(ctx, target):
     transitive_deps = _transitive_crate_deps(deps)
 
     return CrateInfo(
-        kind = ctx.rule.kind,
         target_type = target_type,
         crate_name = crate_name,
         workspace_name = workspace_name,
@@ -274,13 +270,14 @@ def _copy_to_bin(ctx, src, dst):
         command = "cp -f '{}' '{}'".format(src.path, dst.path),
     )
 
-def _should_generate_cargo_project(target, crate_info):
+def _should_generate_cargo_project(ctx, target):
     label_str = str(target.label)
     if _is_universe_crate(target):
         return False
     is_local_or_typedb = (label_str.startswith("@typedb") or label_str.startswith("//")
         or label_str.startswith("@//") or label_str.startswith("@@//") or label_str.startswith("@@typedb"))
-    return is_local_or_typedb and crate_info.target_type in ["bin", "lib", "test"]
+    return is_local_or_typedb and \
+        ctx.rule.kind in _TARGET_TYPES and _TARGET_TYPES[ctx.rule.kind] in ["bin", "lib", "test"]
 
 def _is_universe_crate(target):
     label_str = str(target.label)
