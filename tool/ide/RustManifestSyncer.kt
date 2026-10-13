@@ -698,7 +698,7 @@ class RustManifestSyncer : Callable<Unit> {
                             enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
                             features = props.getProperty(FEATURES).split(",").filter { it.isNotBlank() },
                             version = props.getProperty(VERSION),
-                            edition = props.getProperty(EDITION, "2024"),
+                            edition = props.getProperty(EDITION),
                             deps = parseDependencies(extractDependencyEntries(props), workspaceRefs),
                             buildScript = props.getProperty(BUILD_SCRIPT)?.let {
                                 BuildScript(it, parseBuildDependencies(extractBuildDependencyEntries(props), workspaceRefs))

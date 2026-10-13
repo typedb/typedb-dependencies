@@ -111,7 +111,7 @@ class ManifestWriter : Callable<Unit> {
                             name = props.getProperty(Keys.NAME),
                             type = Type.of(props.getProperty(Keys.TYPE)),
                             version = props.getProperty(Keys.VERSION),
-                            edition = props.getProperty(Keys.EDITION, "2024"),
+                            edition = props.getProperty(Keys.EDITION),
                             deps = parseDependencies(extractDependencyEntries(props)),
                             entryPointPath = props.getProperty(Keys.ENTRY_POINT_PATH)?.let { Path(it) },
                     )

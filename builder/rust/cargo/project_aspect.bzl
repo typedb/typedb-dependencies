@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+load("@rules_rust//rust:defs.bzl", "rust_common")
 
 _TARGET_TYPES = {
     "rust_library": "lib",
@@ -21,8 +22,6 @@ _CRATE_TYPES = {
     "rust_proc_macro": "proc-macro",
     "rust_test": "test",
 }
-
-_DEFAULT_RUST_EDITION = "2024"
 
 _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
@@ -300,6 +299,12 @@ def _build_cargo_properties_file(ctx, properties):
 def _target_type(ctx, target):
     return "build" if ctx.rule.kind == "rust_binary" and _looks_like_rules_rust_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
 
+def _rules_rust_crate_info(target):
+    # rules_rust wraps the CrateInfo of static and shared libraries for rust_test only
+    if rust_common.crate_info in target:
+        return target[rust_common.crate_info]
+    return target[rust_common.test_crate_info].crate
+
 def _get_properties(target, ctx, source_files, crate_info):
     target_type = crate_info.target_type
 
@@ -313,7 +318,7 @@ def _get_properties(target, ctx, source_files, crate_info):
     properties["type"] = target_type
     properties["version"] = crate_info.version
     if target_type in ["bin", "lib"]:
-        properties["edition"] = ctx.rule.attr.edition or _DEFAULT_RUST_EDITION
+        properties["edition"] = _rules_rust_crate_info(target).edition
         entry_point_file = _entry_point_file(target, ctx, source_files)
         properties["entry.point.path"] = _src_relpath(target, ctx, entry_point_file)
     if target_type == "test" and ctx.rule.attr.crate == None:
