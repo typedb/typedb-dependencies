@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-
 _TARGET_TYPES = {
     "rust_library": "lib",
     "rust_shared_library": "lib",
@@ -10,7 +9,6 @@ _TARGET_TYPES = {
     "rust_binary": "bin",
     "rust_proc_macro": "lib",
     "rust_test": "test",
-    "_build_script_run": "build"
 }
 
 _CRATE_TYPES = {
@@ -20,7 +18,6 @@ _CRATE_TYPES = {
     "rust_binary": "bin",
     "rust_proc_macro": "proc-macro",
     "rust_test": "test",
-    "_build_script_run": "N/A"
 }
 
 _DEFAULT_RUST_EDITION = "2024"
@@ -29,16 +26,15 @@ _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
 
 CrateInfo = provider(fields = [
-    "kind",              # str
-    "crate_name",        # str
-    "workspace_name",    # str
-    "crate_path",        # str
-    "version",           # str
-    "enabled_features",  # List[str]
-    "features",          # List[str]
-    "deps",              # List[target]
-    "transitive_deps",   # List[target]
-    "build_deps",        # List[target]
+    "target_type",            # str: "lib", "bin", "test" or "build"
+    "crate_name",             # str
+    "workspace_name",         # str
+    "crate_path",             # str
+    "version",                # str
+    "enabled_features",       # List[str]
+    "features",               # List[str]
+    "deps",                   # List[target]
+    "transitive_deps",        # List[target]
 ])
 
 CargoProjectInfo = provider(fields = [
@@ -53,8 +49,10 @@ def _rust_cargo_project_aspect_impl(target, ctx):
         return []
 
     crate_info = _crate_info(ctx, target)
+    if crate_info.target_type == "build":
+        return [crate_info]
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
-    properties_file = _build_cargo_properties_file(target, ctx, sources, crate_info)
+    properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
     if _should_generate_cargo_project(ctx, target):
         cargo_project_info = _generate_cargo_project(ctx, target, crate_info, properties_file, sources)
@@ -92,8 +90,10 @@ def _rust_cargo_properties_aspect_impl(target, ctx):
         return []
 
     crate_info = _crate_info(ctx, target)
+    if crate_info.target_type == "build":
+        return [crate_info]
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
-    properties_file = _build_cargo_properties_file(target, ctx, sources, crate_info)
+    properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
     return [
         crate_info,
@@ -117,16 +117,17 @@ def _crate_info(ctx, target):
     if _is_universe_crate(target):
         crate_name = target.label.name
         for tag in ctx.rule.attr.tags:
-            if tag.startswith("crate-name"):
-                crate_name = tag.split("=")[1]
+            tag_name, _, tag_value = tag.partition("=")
+            if tag_name == "crate-name":
+                crate_name = tag_value
     else:
         crate_name = ctx.rule.attr.name
         for tag in ctx.rule.attr.tags:
-            if tag.startswith("crate-name"):
-                crate_name = tag.split("=")[1]
-            elif tag.startswith("declared-features"):
-                feature_str = tag.split("=")[1]
-                features = [f.strip() for f in feature_str.split(",") if f.strip()]
+            tag_name, _, tag_value = tag.partition("=")
+            if tag_name == "crate-name":
+                crate_name = tag_value
+            elif tag_name == "declared-features":
+                features = [f.strip() for f in tag_value.split(",") if f.strip()]
 
     workspace_name = target.label.workspace_name
     crate_path = target.label.package
@@ -134,7 +135,7 @@ def _crate_info(ctx, target):
     transitive_deps = _transitive_crate_deps(deps)
 
     return CrateInfo(
-        kind = ctx.rule.kind,
+        target_type = _target_type(ctx, target),
         crate_name = crate_name,
         workspace_name = workspace_name,
         crate_path = crate_path,
@@ -143,17 +144,15 @@ def _crate_info(ctx, target):
         features = features,
         deps = deps,
         transitive_deps = transitive_deps,
-        build_deps = _crate_build_deps(ctx, target),
     )
 
 def _generate_cargo_project(ctx, target, crate_info, properties_file, sources):
     workspace_root = target.label.name + "-cargo-workspace"
 
     manifest_file = ctx.actions.declare_file(workspace_root + "/" + crate_info.crate_name + "/Cargo.toml")
-    build_deps = []
-    args = ["--properties", properties_file.path, "--output", manifest_file.path] + [f.path for f in build_deps]
+    args = ["--properties", properties_file.path, "--output", manifest_file.path]
     ctx.actions.run(
-        inputs = build_deps + [properties_file],
+        inputs = [properties_file],
         outputs = [manifest_file],
         executable = ctx.executable._manifest_writer,
         arguments = args,
@@ -169,7 +168,7 @@ def _generate_cargo_project(ctx, target, crate_info, properties_file, sources):
 
     workspace_files = [manifest_file] + list(project_sources.values())
 
-    for dep in crate_info.transitive_deps + crate_info.build_deps:
+    for dep in crate_info.transitive_deps:
         if CargoProjectInfo in dep:
             dep_info = dep[CrateInfo]
             project_info = dep[CargoProjectInfo]
@@ -197,10 +196,7 @@ def _transitive_crate_deps(deps):
     return transitive_deps
 
 def _crate_deps(ctx, target):
-    return [dep for dep in _all_deps(ctx) if _TARGET_TYPES[dep[CrateInfo].kind] in ["bin", "lib"]]
-
-def _crate_build_deps(ctx, target):
-    return [dep for dep in _deps(ctx) if _TARGET_TYPES[dep[CrateInfo].kind] == "build"]
+    return [dep for dep in _all_deps(ctx) if dep[CrateInfo].target_type in ["bin", "lib"]]
 
 def _deps(ctx):
     return [dep for dep in getattr(ctx.rule.attr, "deps", []) if CrateInfo in dep]
@@ -234,9 +230,8 @@ def _is_universe_crate(target):
             "crate+crates__" in label_str or
             label_str.startswith("@@crates//") or label_str.startswith("@crates//"))
 
-def _build_cargo_properties_file(target, ctx, source_files, crate_info):
+def _build_cargo_properties_file(ctx, properties):
     properties_file = ctx.actions.declare_file("{}.cargo.properties".format(ctx.rule.attr.name))
-    properties = _get_properties(target, ctx, source_files, crate_info)
 
     content = ""
     for prop in properties.items():
@@ -247,8 +242,11 @@ def _build_cargo_properties_file(target, ctx, source_files, crate_info):
     )
     return properties_file
 
+def _target_type(ctx, target):
+    return "build" if ctx.rule.kind == "rust_binary" and _looks_like_rules_rust_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
+
 def _get_properties(target, ctx, source_files, crate_info):
-    target_type = "build" if _looks_like_cargo_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
+    target_type = crate_info.target_type
 
     properties = {}
     properties["name"] = crate_info.crate_name
@@ -263,8 +261,6 @@ def _get_properties(target, ctx, source_files, crate_info):
         properties["edition"] = ctx.rule.attr.edition or _DEFAULT_RUST_EDITION
         entry_point_file = _entry_point_file(target, ctx, source_files)
         properties["entry.point.path"] = _src_relpath(target, ctx, entry_point_file)
-        if len(_crate_build_deps_info(crate_info)) > 0:
-            fail("Build deps support unimplemented")
     if target_type == "test" and ctx.rule.attr.crate == None:
        entry_point_file = _entry_point_file(target, ctx, source_files)
        properties["entry.point.path"] = _src_relpath(target, ctx, entry_point_file)
@@ -293,21 +289,10 @@ def _crate_deps_info(target, crate_info):
 def _is_external_target(target):
     return target.label.workspace_root.startswith("external/")
 
-def _package_relative_path_to_root(label):
-    package_path = label.package.strip()
-    if len(package_path) == 0:
-        return "."
-    else:
-        dirs_to_root = package_path.count("/") + 1
-        return "/".join([".."] * dirs_to_root)
-
 def _package_path_from_root(label):
     return label.package
 
-def _crate_build_deps_info(crate_info):
-    return [build_dep[CrateInfo].crate_name for build_dep in crate_info.build_deps]
-
-def _looks_like_cargo_build_script(target):
+def _looks_like_rules_rust_build_script(target):
     return str(target.label).endswith("_")
 
 def _entry_point_file(target, ctx, source_files):
