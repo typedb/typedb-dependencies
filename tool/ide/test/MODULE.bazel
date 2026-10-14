@@ -33,6 +33,8 @@ rust.toolchain(
     edition = "2024",
     versions = ["1.93.0"],
 )
+use_repo(rust, "rust_toolchains")
+register_toolchains("@rust_toolchains//:all")
 
 # ===========================================================
 # Workspace refs stub

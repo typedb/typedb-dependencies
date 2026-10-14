@@ -300,7 +300,7 @@ def _target_type(ctx, target):
     return "build" if ctx.rule.kind == "rust_binary" and _looks_like_rules_rust_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
 
 def _rules_rust_crate_info(target):
-    # rules_rust wraps the CrateInfo of static and shared libraries for rust_test only
+    # rules_rust exposes staticlib/cdylib crates only through TestCrateInfo (so that only rust_test can depend on them)
     if rust_common.crate_info in target:
         return target[rust_common.crate_info]
     return target[rust_common.test_crate_info].crate

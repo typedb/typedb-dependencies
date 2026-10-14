@@ -220,31 +220,12 @@ class RustManifestSyncer : Callable<Unit> {
                 }
             }
 
-            // the same dependency may be requested with different feature sets by different targets,
-            // the workspace-level entry is their union
-            val allDeps = targets
-                .flatMap { crate ->
-                    (listOf(crate) + crate.tests + crate.benches).flatMap { it.deps }
-                        .filter { it.name != crate.name }
-                        .map { crate.name to it }
-                }
-                .distinct()
-                .groupBy { (_, dep) -> dep.name }
-                .map { (name, requests) ->
-                    requests.map { it.second }.distinct().reduce { merged, next ->
-                        merged.mergeWith(next) ?: throw IllegalStateException(
-                            "Crates request dependency '$name' at conflicting versions or sources: " +
-                                requests.groupBy({ it.second }, { it.first }).entries.joinToString("; ") { (dep, crates) -> "$dep by ${crates.joinToString()}" }
-                        )
-                    }
-                }
-
             val localPackageNames = targets.associate { it.name to packageMetadata.packageName(it.name) }
             val normalDependencyNames = targets.flatMap { it.deps }.map { it.name }.toSet()
 
             subConfig.createSubConfig().apply {
                 subConfig.set<Config>("dependencies", this)
-                allDeps.forEach { dep ->
+                mergedWorkspaceDependencies(targets).forEach { dep ->
                     val depToml = dep.toToml()
                     if (dep is TargetProperties.Dependency.Local) {
                         // cargo keys dependencies by package name: a renamed local package keeps its short
@@ -264,6 +245,27 @@ class RustManifestSyncer : Callable<Unit> {
 
             cargoToml.set<Config>("workspace", subConfig)
             return cargoToml
+        }
+
+        // the same dependency may be requested with different feature sets by different targets,
+        // the workspace-level entry is their union
+        private fun mergedWorkspaceDependencies(targets: List<TargetProperties>): List<TargetProperties.Dependency> {
+            return targets
+                .flatMap { crate ->
+                    (listOf(crate) + crate.tests + crate.benches).flatMap { it.deps }
+                        .filter { it.name != crate.name }
+                        .map { crate.name to it }
+                }
+                .distinct()
+                .groupBy { (_, dep) -> dep.name }
+                .map { (name, requests) ->
+                    requests.map { it.second }.distinct().reduce { merged, next ->
+                        merged.mergeWith(next) ?: throw IllegalStateException(
+                            "Crates request dependency '$name' at conflicting versions or sources: " +
+                                requests.groupBy({ it.second }, { it.first }).entries.joinToString("; ") { (dep, crates) -> "$dep by ${crates.joinToString()}" }
+                        )
+                    }
+                }
         }
 
         private fun writeSortedToml(config: Config): String {
