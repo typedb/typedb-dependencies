@@ -637,16 +637,10 @@ class RustManifestSyncer : Callable<Unit> {
 
                 companion object {
                     fun of(name: String, rawValue: String, workspaceRefs: JsonObject): Dependency {
-                        val rawValueProps = rawValue.split(";")
-                            .associate { it.split("=", limit = 2).let { parts -> parts[0] to parts[1] } }
-                        val features =
-                            rawValueProps[ENABLED_FEATURES]?.split(",")?.filter { it != "bazel" } ?: emptyList();
+                        val rawValueProps = parseRawValue(rawValue)
+                        val features = parseFeatures(rawValueProps)
                         return if (VERSION in rawValueProps) {
-                            Crate(
-                                name = name,
-                                version = rawValueProps[VERSION]!!,
-                                features = features,
-                            )
+                            crateOf(name, rawValue)
                         } else if (WORKSPACE_NAME in rawValueProps) {
                             // WARN: we rely on this naming scheme:
                             //       any internal git dependency is named "@{workspaceName}" where all hyphens in the name are replaced by underscores
@@ -666,6 +660,24 @@ class RustManifestSyncer : Callable<Unit> {
                                 features = features,
                             )
                         }
+                    }
+
+                    fun crateOf(name: String, rawValue: String): Crate {
+                        val rawValueProps = parseRawValue(rawValue)
+                        return Crate(
+                            name = name,
+                            version = rawValueProps[VERSION]!!,
+                            features = parseFeatures(rawValueProps),
+                        )
+                    }
+
+                    private fun parseRawValue(rawValue: String): Map<String, String> {
+                        return rawValue.split(";")
+                            .associate { it.split("=", limit = 2).let { parts -> parts[0] to parts[1] } }
+                    }
+
+                    private fun parseFeatures(rawValueProps: Map<String, String>): List<String> {
+                        return rawValueProps[ENABLED_FEATURES]?.split(",")?.filter { it != "bazel" } ?: emptyList()
                     }
                 }
             }
@@ -703,7 +715,7 @@ class RustManifestSyncer : Callable<Unit> {
                             edition = props.getProperty(EDITION),
                             deps = parseDependencies(extractDependencyEntries(props), workspaceRefs),
                             buildScript = props.getProperty(BUILD_SCRIPT)?.let {
-                                BuildScript(it, parseBuildDependencies(extractBuildDependencyEntries(props), workspaceRefs))
+                                BuildScript(it, parseBuildDependencies(extractBuildDependencyEntries(props)))
                             },
                             entryPointPath = props.getProperty(ENTRY_POINT_PATH)?.let { Path(it) },
                             cargoEntryPointPath = props.getProperty(CARGO_ENTRY_POINT_PATH)?.let { Path(it) },
@@ -794,11 +806,8 @@ class RustManifestSyncer : Callable<Unit> {
                     return raw.map { Dependency.of(it.key, it.value, workspaceRefs) }
                 }
 
-                private fun parseBuildDependencies(
-                    raw: Map<String, String>,
-                    workspaceRefs: JsonObject
-                ): Set<Dependency.Crate> {
-                    return raw.map { Dependency.of(it.key, it.value, workspaceRefs) as Dependency.Crate }.toSet()
+                private fun parseBuildDependencies(raw: Map<String, String>): Set<Dependency.Crate> {
+                    return raw.map { Dependency.crateOf(it.key, it.value) }.toSet()
                 }
             }
 
