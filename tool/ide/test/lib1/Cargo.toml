@@ -13,7 +13,16 @@
 	crate-type = ["lib"]
 	path = "lib.rs"
 
+[dependencies]
+
+	[dependencies.lib0]
+		workspace = true
+
 [dev-dependencies]
 
 	[dev-dependencies.lib2]
 		workspace = true
+
+[[bin]]
+	name = "lib1_bin"
+	path = "main.rs"

@@ -11,10 +11,15 @@
 	path = "lib.rs"
 
 [workspace]
-	members = ["lib1", "lib2", "lib3"]
+	members = ["lib0", "lib1", "lib2", "lib3"]
 	resolver = "2"
 
 	[workspace.dependencies]
+
+		[workspace.dependencies.lib0]
+			default-features = false
+			features = ["alpha", "beta"]
+			path = "lib0"
 
 		[workspace.dependencies.lib1]
 			default-features = false

@@ -15,6 +15,12 @@
 	[dependencies.lib1]
 		workspace = true
 
+[dev-dependencies]
+
+	[dev-dependencies.lib1]
+		features = ["extra"]
+		workspace = true
+
 [[test]]
 	name = "lib2_integration_test"
 	path = "tests/test.rs"
