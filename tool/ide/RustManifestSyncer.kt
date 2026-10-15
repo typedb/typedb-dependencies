@@ -133,9 +133,7 @@ class RustManifestSyncer : Callable<Unit> {
 
             val targets = loadSyncProperties(bazelBin);
             val workspaceDependencies = workspaceDependencies(targets)
-            val manifests = targets.filter { shouldGenerateManifest(it) }
-                    .map { ManifestGenerator(it, workspaceDependencies).generateManifest(bazelBin) }
-                    .toMutableList()
+            val manifests = targets.map { ManifestGenerator(it, workspaceDependencies).generateManifest(bazelBin) }.toMutableList()
 
             // append Cargo Workspace to root Cargo Manifest, or create it if it does not exist
             val workspaceManifest = manifests.stream().filter { it.toPath().parent.equals(workspace) }
@@ -187,7 +185,7 @@ class RustManifestSyncer : Callable<Unit> {
                     .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
                     .groupBy { Triple(it.name, it.cratePath, it.type) }.values
                     .map { TargetProperties.mergeList(it) }
-                    .run { attachTestsAndBenches(this) }
+                    .run { assemblePackages(this) }
         }
 
         private fun findSyncPropertiesFiles(bazelBin: File): List<File> {
@@ -197,7 +195,7 @@ class RustManifestSyncer : Callable<Unit> {
             return filesToCheck.filter { it.name.endsWith(MANIFEST_PROPERTIES_SUFFIX) }.sortedBy { it.path }
         }
 
-        private fun attachTestsAndBenches(properties: Collection<TargetProperties>): List<TargetProperties> {
+        private fun assemblePackages(properties: Collection<TargetProperties>): List<TargetProperties> {
             val TESTS_DIR = "tests"
             val BENCHES_DIR = "benches" // we translate Bazel Tests in 'benches' into Cargo benchmarks
             val (testProperties, nonTestProperties) = properties.partition { it.type == TargetProperties.Type.TEST }
@@ -243,10 +241,6 @@ class RustManifestSyncer : Callable<Unit> {
                 .map { TargetProperties.mergePackage(it) }
 
             return packages;
-        }
-
-        private fun shouldGenerateManifest(properties: TargetProperties): Boolean {
-            return properties.type in listOf(TargetProperties.Type.LIB, TargetProperties.Type.BIN)
         }
 
         private inner class ManifestGenerator(
@@ -472,7 +466,7 @@ class RustManifestSyncer : Callable<Unit> {
 
                 companion object {
                     fun union(requests: Collection<Dependency>): Dependency {
-                        return sameSource(requests).withFeatures(requests.flatMap { it.features }.distinct())
+                        return requireSameSource(requests).withFeatures(requests.flatMap { it.features }.distinct())
                     }
 
                     fun unionByName(requests: Collection<Dependency>): List<Dependency> {
@@ -480,11 +474,11 @@ class RustManifestSyncer : Callable<Unit> {
                     }
 
                     fun intersection(requests: Collection<Dependency>): Dependency {
-                        return sameSource(requests)
+                        return requireSameSource(requests)
                                 .withFeatures(requests.map { it.features.toSet() }.reduce { shared, next -> shared intersect next }.toList())
                     }
 
-                    private fun sameSource(requests: Collection<Dependency>): Dependency {
+                    private fun requireSameSource(requests: Collection<Dependency>): Dependency {
                         val first = requests.first()
                         requests.firstOrNull { !it.hasSameSource(first) }?.let {
                             throw IllegalStateException("Dependency '${first.name}' is requested at conflicting versions or sources: $first; $it")
