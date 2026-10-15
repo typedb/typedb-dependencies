@@ -21,6 +21,7 @@ kt_jvm_library(
         "RustManifestSyncer.kt",
     ],
     deps = [
+        "//builder/rust/cargo:cargo-toml",
         "@typedb_bazel_distribution//common",
         "@typedb_bazel_distribution//common/shell",
         "@typedb_bazel_distribution//common/util",

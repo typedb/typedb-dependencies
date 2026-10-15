@@ -9,13 +9,14 @@ package com.typedb.dependencies.tool.ide
 import com.eclipsesource.json.Json
 import com.eclipsesource.json.JsonObject
 import com.electronwill.nightconfig.core.Config
-import com.electronwill.nightconfig.core.InMemoryFormat
-import com.electronwill.nightconfig.toml.TomlWriter
 import com.typedb.bazel.distribution.common.Logging.LogLevel.DEBUG
 import com.typedb.bazel.distribution.common.Logging.LogLevel.ERROR
 import com.typedb.bazel.distribution.common.Logging.Logger
 import com.typedb.bazel.distribution.common.shell.Shell
 import com.typedb.bazel.distribution.common.util.FileUtil.listFilesRecursively
+import com.typedb.dependencies.builder.rust.cargo.CargoToml.GENERATED_FILE_NOTICE
+import com.typedb.dependencies.builder.rust.cargo.CargoToml.orderedConfig
+import com.typedb.dependencies.builder.rust.cargo.CargoToml.writeSortedToml
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.ASPECTS
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.BAZEL
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.BAZEL_BIN
@@ -101,8 +102,6 @@ class RustManifestSyncer : Callable<Unit> {
     }
 
     companion object {
-        private fun orderedConfig(): Config = Config.of({ LinkedHashMap() }, InMemoryFormat.defaultInstance())
-
         private fun rustTargets(shell: Shell, workspace: Path): List<String> {
             return shell.execute(listOf(BAZEL, QUERY, RUST_TARGETS_QUERY), workspace)
                     .outputString().split(System.lineSeparator()).filter { it.isNotBlank() }
@@ -195,29 +194,6 @@ class RustManifestSyncer : Callable<Unit> {
                         }
                         deps[0].withFeatures(deps.map { it.features.toSet() }.reduce { shared, next -> shared intersect next }.toList())
                     }
-        }
-
-        private fun writeSortedToml(config: Config): String {
-            val copy = orderedConfig()
-            config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = valueDeepSorted(value) }
-            return TomlWriter().writeToString(copy.unmodifiable()).trim() + "\n"
-        }
-
-        private fun valueDeepSorted(value: Any?): Any? = when (value) {
-            is Config -> configDeepSorted(value)
-            is List<*> -> value.map { valueDeepSorted(it) }.sortedBy { elementSortKey(it) }
-            else -> value
-        }
-
-        private fun configDeepSorted(config: Config): Config {
-            val copy = orderedConfig()
-            config.valueMap().entries.sortedBy { it.key }.forEach { copy.valueMap()[it.key] = valueDeepSorted(it.value) }
-            return copy
-        }
-
-        private fun elementSortKey(value: Any?): String = when (value) {
-            is Config -> value.get<String?>("name") ?: ""
-            else -> value.toString()
         }
 
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
@@ -450,14 +426,18 @@ class RustManifestSyncer : Callable<Unit> {
         ) {
             fun allDeps(): List<Dependency> = (listOf(this) + tests + benches).flatMap { it.deps }
 
-            sealed class Dependency(open val name: String, open val features: List<String>) {
+            sealed class Dependency {
+                abstract val name: String
+
+                abstract val features: List<String>
+
                 abstract fun hasSameSource(other: Dependency): Boolean
 
                 abstract fun withFeatures(features: List<String>): Dependency
 
                 abstract fun toToml(): Config
 
-                data class Crate(override val name: String, val version: String, override val features: List<String>) : Dependency(name, features) {
+                data class Crate(override val name: String, val version: String, override val features: List<String>) : Dependency() {
                     override fun hasSameSource(other: Dependency) = other is Crate && other.version == version
 
                     override fun withFeatures(features: List<String>) = copy(features = features)
@@ -475,7 +455,7 @@ class RustManifestSyncer : Callable<Unit> {
                         override val name: String,
                         val local_path: String,
                         override val features: List<String>,
-                ) : Dependency(name, features) {
+                ) : Dependency() {
                     override fun hasSameSource(other: Dependency) = other is Local && other.local_path == local_path
 
                     override fun withFeatures(features: List<String>) = copy(features = features)
@@ -495,7 +475,7 @@ class RustManifestSyncer : Callable<Unit> {
                         val commit: String?,
                         val tag: String?,
                         override val features: List<String>,
-                ) : Dependency(name, features) {
+                ) : Dependency() {
                     override fun hasSameSource(other: Dependency) =
                             other is Git && other.repoName == repoName && other.commit == commit && other.tag == tag
 
@@ -658,14 +638,6 @@ class RustManifestSyncer : Callable<Unit> {
             const val EXTERNAL = "external"
             const val MANIFEST_PROPERTIES_SUFFIX = ".cargo.properties"
             const val GITHUB_TYPEDB = "https://github.com/typedb/"
-        }
-
-        companion object {
-            const val GENERATED_FILE_NOTICE =
-                """# Generated by TypeDB Cargo sync tool.
-# Do not modify this file.
-
-"""
         }
     }
 

@@ -21,6 +21,7 @@ kt_jvm_library(
         "ManifestWriter.kt",
     ],
     deps = [
+        ":cargo-toml",
         "@typedb_bazel_distribution//common",
         "@typedb_bazel_distribution//common/shell",
         "@typedb_bazel_distribution//common/util",
@@ -30,6 +31,18 @@ kt_jvm_library(
         "@typedb_maven//:info_picocli_picocli",
         "@typedb_maven//:org_zeroturnaround_zt_exec",
     ]
+)
+
+kt_jvm_library(
+    name = "cargo-toml",
+    srcs = [
+        "CargoToml.kt",
+    ],
+    deps = [
+        "@typedb_maven//:com_electronwill_night_config_core",
+        "@typedb_maven//:com_electronwill_night_config_toml",
+    ],
+    visibility = ["//tool/ide:__pkg__"],
 )
 
 checkstyle_test(

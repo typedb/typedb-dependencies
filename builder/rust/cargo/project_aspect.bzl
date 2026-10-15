@@ -26,7 +26,7 @@ _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
 
 CrateInfo = provider(fields = [
-    "target_type",            # str: "lib", "bin", "test" or "build"
+    "target_type",            # str: "lib", "bin" or "test"
     "crate_name",             # str
     "workspace_name",         # str
     "crate_path",             # str
@@ -49,8 +49,6 @@ def _rust_cargo_project_aspect_impl(target, ctx):
         return []
 
     crate_info = _crate_info(ctx, target)
-    if crate_info.target_type == "build":
-        return [crate_info]
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
     properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
@@ -90,8 +88,6 @@ def _rust_cargo_properties_aspect_impl(target, ctx):
         return []
 
     crate_info = _crate_info(ctx, target)
-    if crate_info.target_type == "build":
-        return [crate_info]
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
     properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
@@ -135,7 +131,7 @@ def _crate_info(ctx, target):
     transitive_deps = _transitive_crate_deps(deps)
 
     return CrateInfo(
-        target_type = _target_type(ctx, target),
+        target_type = _TARGET_TYPES[ctx.rule.kind],
         crate_name = crate_name,
         workspace_name = workspace_name,
         crate_path = crate_path,
@@ -242,9 +238,6 @@ def _build_cargo_properties_file(ctx, properties):
     )
     return properties_file
 
-def _target_type(ctx, target):
-    return "build" if ctx.rule.kind == "rust_binary" and _looks_like_rules_rust_build_script(target) else _TARGET_TYPES[ctx.rule.kind]
-
 def _get_properties(target, ctx, source_files, crate_info):
     target_type = crate_info.target_type
 
@@ -291,9 +284,6 @@ def _is_external_target(target):
 
 def _package_path_from_root(label):
     return label.package
-
-def _looks_like_rules_rust_build_script(target):
-    return str(target.label).endswith("_")
 
 def _entry_point_file(target, ctx, source_files):
     if getattr(ctx.rule.attr, "crate_root", None):
