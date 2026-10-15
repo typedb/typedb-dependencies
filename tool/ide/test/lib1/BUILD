@@ -26,8 +26,10 @@ rust_library(
 
 rust_binary(
     name = "lib1_bin",
+    crate_name = "lib1",
     srcs = ["main.rs"],
     deps = ["//lib0:lib0_beta"],
+    tags = ["crate-name=lib1"],
 )
 
 rust_test(

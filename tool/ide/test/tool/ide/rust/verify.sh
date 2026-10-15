@@ -12,7 +12,7 @@ cd "$SCRIPT_DIR/../../.."
 CHANGED="$(git status --porcelain -uall -- . | grep 'Cargo\.toml' || true)"
 if [ -n "$CHANGED" ]; then
     echo "$CHANGED"
-    git --no-pager diff -- '*Cargo.toml*'
+    git --no-pager diff -- '*Cargo.toml'
     git ls-files --others --exclude-standard -- '*Cargo.toml' | while read -r new_manifest; do
         git --no-pager diff --no-index /dev/null "$new_manifest" || true
     done

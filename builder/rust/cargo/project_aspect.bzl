@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+
 _TARGET_TYPES = {
     "rust_library": "lib",
     "rust_shared_library": "lib",
@@ -26,15 +27,15 @@ _BIN_ENTRY_POINT = "main.rs"
 _LIB_ENTRY_POINT = "lib.rs"
 
 CrateInfo = provider(fields = [
-    "target_type",            # str: "lib", "bin" or "test"
-    "crate_name",             # str
-    "workspace_name",         # str
-    "crate_path",             # str
-    "version",                # str
-    "enabled_features",       # List[str]
-    "features",               # List[str]
-    "deps",                   # List[target]
-    "transitive_deps",        # List[target]
+    "target_type",       # str: "lib", "bin" or "test"
+    "crate_name",        # str
+    "workspace_name",    # str
+    "crate_path",        # str
+    "version",           # str
+    "enabled_features",  # List[str]
+    "features",          # List[str]
+    "deps",              # List[target]
+    "transitive_deps",   # List[target]
 ])
 
 CargoProjectInfo = provider(fields = [
@@ -52,7 +53,7 @@ def _rust_cargo_project_aspect_impl(target, ctx):
     sources = [f for src in getattr(ctx.rule.attr, "srcs", []) + getattr(ctx.rule.attr, "compile_data", []) for f in src.files.to_list()]
     properties_file = _build_cargo_properties_file(ctx, _get_properties(target, ctx, sources, crate_info))
 
-    if _should_generate_cargo_project(ctx, target):
+    if _should_generate_cargo_project(target):
         cargo_project_info = _generate_cargo_project(ctx, target, crate_info, properties_file, sources)
         return [
             crate_info,
@@ -81,7 +82,7 @@ rust_cargo_project_aspect = aspect(
 )
 
 # TODO: Consider merging with `rust_cargo_project_aspect`
-# (isolate from `if _should_generate_cargo_project(ctx, target)`)
+# (isolate from `if _should_generate_cargo_project(target)`)
 def _rust_cargo_properties_aspect_impl(target, ctx):
     if ctx.rule.kind not in _TARGET_TYPES.keys():
         # not a crate
@@ -113,17 +114,16 @@ def _crate_info(ctx, target):
     if _is_universe_crate(target):
         crate_name = target.label.name
         for tag in ctx.rule.attr.tags:
-            tag_name, _, tag_value = tag.partition("=")
-            if tag_name == "crate-name":
-                crate_name = tag_value
+            if tag.startswith("crate-name"):
+                crate_name = tag.split("=")[1]
     else:
         crate_name = ctx.rule.attr.name
         for tag in ctx.rule.attr.tags:
-            tag_name, _, tag_value = tag.partition("=")
-            if tag_name == "crate-name":
-                crate_name = tag_value
-            elif tag_name == "declared-features":
-                features = [f.strip() for f in tag_value.split(",") if f.strip()]
+            if tag.startswith("crate-name"):
+                crate_name = tag.split("=")[1]
+            elif tag.startswith("declared-features"):
+                feature_str = tag.split("=")[1]
+                features = [f.strip() for f in feature_str.split(",") if f.strip()]
 
     workspace_name = target.label.workspace_name
     crate_path = target.label.package
@@ -211,14 +211,12 @@ def _copy_to_bin(ctx, src, dst):
         command = "cp -f '{}' '{}'".format(src.path, dst.path),
     )
 
-def _should_generate_cargo_project(ctx, target):
+def _should_generate_cargo_project(target):
     label_str = str(target.label)
     if _is_universe_crate(target):
         return False
-    is_local_or_typedb = (label_str.startswith("@typedb") or label_str.startswith("//")
+    return (label_str.startswith("@typedb") or label_str.startswith("//")
         or label_str.startswith("@//") or label_str.startswith("@@//") or label_str.startswith("@@typedb"))
-    return is_local_or_typedb and \
-        ctx.rule.kind in _TARGET_TYPES and _TARGET_TYPES[ctx.rule.kind] in ["bin", "lib", "test"]
 
 def _is_universe_crate(target):
     label_str = str(target.label)
@@ -246,7 +244,6 @@ def _get_properties(target, ctx, source_files, crate_info):
     properties["path"] = crate_info.crate_path
     properties["enabled.features"] = ",".join(crate_info.enabled_features)
     properties["features"] = ",".join(crate_info.features)
-    properties["target.name"] = target.label.name
     properties["crate_type"] = _CRATE_TYPES[ctx.rule.kind]
     properties["type"] = target_type
     properties["version"] = crate_info.version

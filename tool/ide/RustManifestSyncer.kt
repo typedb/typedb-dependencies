@@ -40,7 +40,6 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Targe
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.NAME
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.PATH
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.REPO_PATH
-import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.TARGET_NAME
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.TYPE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.VERSION
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.WORKSPACE_NAME
@@ -93,8 +92,7 @@ class RustManifestSyncer : Callable<Unit> {
 
     private fun loadWorkspaceRefs(): JsonObject {
         shell.execute(command = listOf(BAZEL, BUILD, workspaceRefsLabel), baseDir = workspaceDir);
-        val workspaceRefsFile =
-            shell.execute(command = listOf(BAZEL, CQUERY, OUTPUT_FILES, workspaceRefsLabel), baseDir = workspaceDir)
+        val workspaceRefsFile = shell.execute(command = listOf(BAZEL, CQUERY, OUTPUT_FILES, workspaceRefsLabel), baseDir = workspaceDir)
                 .outputString().trim();
 
         val bazelOutputBase = shell.execute(listOf(BAZEL, INFO, OUTPUT_BASE), workspaceDir).outputString().trim();
@@ -121,8 +119,7 @@ class RustManifestSyncer : Callable<Unit> {
         private fun cleanupOldSyncProperties() {
             logger.debug { "Cleaning up old cargo sync properties under $workspace" }
             val bazelBin = File(shell.execute(listOf(BAZEL, INFO, BAZEL_BIN), workspace).outputString().trim())
-            bazelBin.listFilesRecursively().filter { it.name.endsWith(MANIFEST_PROPERTIES_SUFFIX) }
-                    .forEach { it.delete() }
+            bazelBin.listFilesRecursively().filter { it.name.endsWith(MANIFEST_PROPERTIES_SUFFIX) }.forEach { it.delete() }
         }
 
         private fun runCargoProjectAspect() {
@@ -167,9 +164,11 @@ class RustManifestSyncer : Callable<Unit> {
             subConfig.set<List<String>>("members", manifestPaths)
             subConfig.set<String>("resolver", "2")
 
-            subConfig.createSubConfig().apply {
-                subConfig.set<Config>("dependencies", this)
-                workspaceDependencies.values.forEach { set<Config>(it.name, it.toToml()) }
+            if (workspaceDependencies.isNotEmpty()) {
+                subConfig.createSubConfig().apply {
+                    subConfig.set<Config>("dependencies", this)
+                    workspaceDependencies.values.forEach { set<Config>(it.name, it.toToml()) }
+                }
             }
 
             cargoToml.set<Config>("workspace", subConfig)
@@ -178,20 +177,9 @@ class RustManifestSyncer : Callable<Unit> {
 
         // a workspace entry carries the features every requesting target shares; a member adds the rest of its own request
         private fun workspaceDependencies(targets: List<TargetProperties>): Map<String, TargetProperties.Dependency> {
-            return targets
-                    .flatMap { crate -> crate.allDeps().filter { it.name != crate.name }.map { crate.name to it } }
-                    .distinct()
-                    .groupBy { (_, dep) -> dep.name }
-                    .mapValues { (name, requests) ->
-                        val deps = requests.map { it.second }
-                        if (deps.any { !it.hasSameSource(deps[0]) }) {
-                            throw IllegalStateException(
-                                    "Crates request dependency '$name' at conflicting versions or sources: " +
-                                            requests.groupBy({ it.second }, { it.first }).entries.joinToString("; ") { (dep, crates) -> "$dep by ${crates.joinToString()}" }
-                            )
-                        }
-                        deps[0].withFeatures(deps.map { it.features.toSet() }.reduce { shared, next -> shared intersect next }.toList())
-                    }
+            return targets.flatMap { crate -> crate.allDeps().filter { it.name != crate.name } }
+                    .groupBy { it.name }
+                    .mapValues { (_, requests) -> TargetProperties.Dependency.intersection(requests) }
         }
 
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
@@ -295,7 +283,8 @@ class RustManifestSyncer : Callable<Unit> {
                     }
                 }
 
-                cargoToml.createEntryPointSubConfig()
+                cargoToml.addLib()
+                cargoToml.addBins()
 
                 if (properties.deps.isNotEmpty()) {
                     cargoToml.createSubConfig().apply {
@@ -305,7 +294,6 @@ class RustManifestSyncer : Callable<Unit> {
                 }
 
                 cargoToml.addDevDependencies()
-                cargoToml.addBins()
                 cargoToml.addBenches()
                 cargoToml.addTests()
 
@@ -320,35 +308,19 @@ class RustManifestSyncer : Callable<Unit> {
                 }
             }
 
-            private fun Config.createEntryPointSubConfig() {
-                val entryPointPath = properties.entryPointPath.toString()
-
-                when (properties.type) {
-                    TargetProperties.Type.LIB -> {
-                        createSubConfig().apply {
-                            this@createEntryPointSubConfig.set<Config>("lib", this)
-                            set<String>("path", entryPointPath)
-                            set<List<String>>("crate-type", properties.crateTypes)
-                        }
+            private fun Config.addLib() {
+                if (properties.type == TargetProperties.Type.LIB) {
+                    createSubConfig().apply {
+                        this@addLib.set<Config>("lib", this)
+                        set<String>("path", properties.entryPointPath.toString())
+                        set<List<String>>("crate-type", properties.crateTypes)
                     }
-
-                    TargetProperties.Type.BIN -> {
-                        createSubConfig().apply {
-                            this@createEntryPointSubConfig.set<List<Config>>("bin", listOf(this))
-                            set<String>("name", properties.name)
-                            set<String>("path", entryPointPath)
-                        }
-                    }
-
-                    TargetProperties.Type.TEST -> throw IllegalStateException(
-                            "$CARGO_TOML should not be generated for sync properties of type ${properties.type}"
-                    )
                 }
             }
 
             private fun Config.addDevDependencies() {
                 val dependencies = properties.deps.associateBy { it.name }
-                val devDependencies = TargetProperties.Dependency.merged((properties.tests + properties.benches).flatMap { it.deps })
+                val devDependencies = TargetProperties.Dependency.unionByName((properties.tests + properties.benches).flatMap { it.deps })
                         .filter { it.name != properties.name }
                         .map { dep -> dependencies[dep.name]?.let { dep.withFeatures(dep.features - it.features) } ?: dep }
                         .filter { it.name !in dependencies || it.features.isNotEmpty() }
@@ -361,8 +333,10 @@ class RustManifestSyncer : Callable<Unit> {
             }
 
             private fun Config.addBins() {
-                if (properties.bins.isNotEmpty()) {
-                    val mapped = properties.bins.map {
+                val bins = if (properties.type == TargetProperties.Type.BIN && properties.bins.isEmpty()) listOf(properties)
+                        else properties.bins
+                if (bins.isNotEmpty()) {
+                    val mapped = bins.map {
                         if (it.entryPointPath != null) {
                             val path = Path(properties.cratePath).relativize(Path(it.cratePath)).resolve(it.entryPointPath)
                             createSubConfig().apply {
@@ -410,7 +384,6 @@ class RustManifestSyncer : Callable<Unit> {
         data class TargetProperties(
                 val path: File,
                 val name: String,
-                val targetName: String,
                 val cratePath: String,
                 val type: Type,
                 val crateTypes: Collection<String>,
@@ -498,20 +471,31 @@ class RustManifestSyncer : Callable<Unit> {
                 }
 
                 companion object {
-                    fun merged(requests: Collection<Dependency>): List<Dependency> {
-                        return requests.groupBy { it.name }.values.map { group ->
-                            group.firstOrNull { !it.hasSameSource(group[0]) }?.let {
-                                throw IllegalStateException("Dependency '${group[0].name}' is requested at conflicting versions or sources: ${group[0]}; $it")
-                            }
-                            group[0].withFeatures(group.flatMap { it.features }.distinct())
+                    fun union(requests: Collection<Dependency>): Dependency {
+                        return sameSource(requests).withFeatures(requests.flatMap { it.features }.distinct())
+                    }
+
+                    fun unionByName(requests: Collection<Dependency>): List<Dependency> {
+                        return requests.groupBy { it.name }.values.map { union(it) }
+                    }
+
+                    fun intersection(requests: Collection<Dependency>): Dependency {
+                        return sameSource(requests)
+                                .withFeatures(requests.map { it.features.toSet() }.reduce { shared, next -> shared intersect next }.toList())
+                    }
+
+                    private fun sameSource(requests: Collection<Dependency>): Dependency {
+                        val first = requests.first()
+                        requests.firstOrNull { !it.hasSameSource(first) }?.let {
+                            throw IllegalStateException("Dependency '${first.name}' is requested at conflicting versions or sources: $first; $it")
                         }
+                        return first
                     }
 
                     fun of(name: String, rawValue: String, workspaceRefs: JsonObject): Dependency {
                         val rawValueProps = rawValue.split(";")
                                 .associate { it.split("=", limit = 2).let { parts -> parts[0] to parts[1] } }
-                        val features =
-                            rawValueProps[ENABLED_FEATURES]?.split(",")?.filter { it != "bazel" } ?: emptyList();
+                        val features = rawValueProps[ENABLED_FEATURES]?.split(",")?.filter { it != "bazel" } ?: emptyList();
                         return if (VERSION in rawValueProps) {
                             Crate(
                                     name = name,
@@ -565,7 +549,6 @@ class RustManifestSyncer : Callable<Unit> {
                         return TargetProperties(
                                 path = path,
                                 name = props.getProperty(NAME),
-                                targetName = props.getProperty(TARGET_NAME),
                                 type = Type.of(props.getProperty(TYPE)),
                                 crateTypes = listOf(props.getProperty(CRATE_TYPE)),
                                 enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
@@ -591,7 +574,7 @@ class RustManifestSyncer : Callable<Unit> {
                                 crateTypes = (base.crateTypes + properties.crateTypes).distinct(),
                                 enabledFeatures = (base.enabledFeatures + properties.enabledFeatures).distinct(),
                                 features = (base.features + properties.features).distinct(),
-                                deps = Dependency.merged(base.deps + properties.deps),
+                                deps = Dependency.unionByName(base.deps + properties.deps),
                         )
                     };
                     return base;
@@ -608,7 +591,7 @@ class RustManifestSyncer : Callable<Unit> {
                     val lib = libs.firstOrNull()
                     val base = lib ?: bins[0].copy(name = bins[0].cratePath.replace('/', '-'))
                     return base.copy(
-                            deps = Dependency.merged(package_properties.flatMap { it.deps }.filter { it.name != lib?.name }),
+                            deps = Dependency.unionByName(package_properties.flatMap { it.deps }.filter { it.name != lib?.name }),
                             bins = bins.toMutableList(),
                     )
                 }
@@ -632,7 +615,6 @@ class RustManifestSyncer : Callable<Unit> {
                 const val ENTRY_POINT_PATH = "entry.point.path"
                 const val ENABLED_FEATURES = "enabled.features"
                 const val FEATURES = "features"
-                const val TARGET_NAME = "target.name"
                 const val NAME = "name"
                 const val PATH = "path"
                 const val REPO_PATH = "repopath"
@@ -651,8 +633,7 @@ class RustManifestSyncer : Callable<Unit> {
     }
 
     private object ShellArgs {
-        const val ASPECTS =
-            "--aspects=@typedb_dependencies//builder/rust/cargo:project_aspect.bzl%rust_cargo_properties_aspect"
+        const val ASPECTS = "--aspects=@typedb_dependencies//builder/rust/cargo:project_aspect.bzl%rust_cargo_properties_aspect"
         const val BAZEL = "bazel"
         const val BAZEL_BIN = "bazel-bin"
         const val BUILD = "build"
