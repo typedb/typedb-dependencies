@@ -6,4 +6,5 @@
 
 pub fn uses_lib1_extra() {
     lib1::exported();
+    lib1::extra();
 }

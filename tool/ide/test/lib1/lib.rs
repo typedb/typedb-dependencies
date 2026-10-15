@@ -5,3 +5,6 @@
  */
 
 pub fn exported() {}
+
+#[cfg(feature = "extra")]
+pub fn extra() {}

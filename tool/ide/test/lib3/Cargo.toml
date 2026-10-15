@@ -13,4 +13,5 @@
 [dependencies]
 
 	[dependencies.lib1]
+		features = ["extra"]
 		workspace = true

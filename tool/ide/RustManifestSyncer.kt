@@ -87,11 +87,7 @@ class RustManifestSyncer : Callable<Unit> {
     }
 
     private fun loadRustToolchainAndExternalDeps(rustTargets: List<String>) {
-        shell.execute(
-            command = listOf(BAZEL, BUILD) + rustTargets + "--keep_going",
-            baseDir = workspaceDir,
-            throwOnError = false
-        )
+        shell.execute(command = listOf(BAZEL, BUILD) + rustTargets + "--keep_going", baseDir = workspaceDir, throwOnError = false)
     }
 
     private fun loadWorkspaceRefs(): JsonObject {
@@ -109,16 +105,12 @@ class RustManifestSyncer : Callable<Unit> {
 
         private fun rustTargets(shell: Shell, workspace: Path): List<String> {
             return shell.execute(listOf(BAZEL, QUERY, RUST_TARGETS_QUERY), workspace)
-                .outputString().split(System.lineSeparator()).filter { it.isNotBlank() }
+                    .outputString().split(System.lineSeparator()).filter { it.isNotBlank() }
         }
     }
 
-    private class WorkspaceSyncer(
-        private val workspace: Path,
-        private val workspaceRefs: JsonObject,
-        private var logger: Logger,
-        private var shell: Shell,
-    ) {
+    private class WorkspaceSyncer(private val workspace: Path, private val workspaceRefs: JsonObject, private var logger: Logger, private var shell: Shell) {
+        private lateinit var workspaceDependencies: Map<String, TargetProperties.Dependency>
 
         fun sync() {
             logger.debug { "Syncing $workspace" }
@@ -133,7 +125,7 @@ class RustManifestSyncer : Callable<Unit> {
             logger.debug { "Cleaning up old cargo sync properties under $workspace" }
             val bazelBin = File(shell.execute(listOf(BAZEL, INFO, BAZEL_BIN), workspace).outputString().trim())
             bazelBin.listFilesRecursively().filter { it.name.endsWith(MANIFEST_PROPERTIES_SUFFIX) }
-                .forEach { it.delete() }
+                    .forEach { it.delete() }
         }
 
         private fun runCargoProjectAspect() {
@@ -146,14 +138,15 @@ class RustManifestSyncer : Callable<Unit> {
             Files.deleteIfExists(rootTomlPath);
 
             val targets = loadSyncProperties(bazelBin);
+            workspaceDependencies = workspaceDependencies(targets)
             val manifests = targets.filter { shouldGenerateManifest(it) }
-                .map { ManifestGenerator(it).generateManifest(bazelBin) }
-                .toMutableList()
+                    .map { ManifestGenerator(it).generateManifest(bazelBin) }
+                    .toMutableList()
 
             // append Cargo Workspace to root Cargo Manifest, or create it if it does not exist
             val workspaceManifest = manifests.stream().filter { it.toPath().parent.equals(workspace) }
-                .findFirst()
-            val cargoWorkspaceConfig = createCargoWorkspace(manifests, targets);
+                    .findFirst()
+            val cargoWorkspaceConfig = createCargoWorkspace(manifests);
             val cargoWorkspaceString = (if (workspaceManifest.isPresent) "\n" else GENERATED_FILE_NOTICE) + writeSortedToml(cargoWorkspaceConfig)
 
             Files.newOutputStream(rootTomlPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE).use {
@@ -166,11 +159,11 @@ class RustManifestSyncer : Callable<Unit> {
             println(manifests.joinToString(System.lineSeparator()))
         }
 
-        private fun createCargoWorkspace(manifests: List<File>, targets: List<TargetProperties>): Config {
+        private fun createCargoWorkspace(manifests: List<File>): Config {
             val manifestPaths = manifests.map { workspace.relativize(it.toPath().parent).toString() }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .toList()
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .toList()
 
             val cargoToml = orderedConfig()
             val subConfig = cargoToml.createSubConfig()
@@ -179,51 +172,46 @@ class RustManifestSyncer : Callable<Unit> {
 
             subConfig.createSubConfig().apply {
                 subConfig.set<Config>("dependencies", this)
-                mergedWorkspaceDependencies(targets).forEach { set<Config>(it.name, it.toToml()) }
+                workspaceDependencies.values.forEach { set<Config>(it.name, it.toToml()) }
             }
 
             cargoToml.set<Config>("workspace", subConfig)
             return cargoToml
         }
 
-        // the same dependency may be requested with different feature sets by different targets,
-        // the workspace-level entry is their union
-        private fun mergedWorkspaceDependencies(targets: List<TargetProperties>): List<TargetProperties.Dependency> {
+        // a workspace entry carries the features every requesting target shares; a member adds the rest of its own request
+        private fun workspaceDependencies(targets: List<TargetProperties>): Map<String, TargetProperties.Dependency> {
             return targets
-                .flatMap { crate ->
-                    (listOf(crate) + crate.tests + crate.benches).flatMap { it.deps }
-                        .filter { it.name != crate.name }
-                        .map { crate.name to it }
-                }
-                .distinct()
-                .groupBy { (_, dep) -> dep.name }
-                .map { (name, requests) ->
-                    requests.map { it.second }.distinct().reduce { merged, next ->
-                        merged.mergeWith(next) ?: throw IllegalStateException(
-                            "Crates request dependency '$name' at conflicting versions or sources: " +
-                                requests.groupBy({ it.second }, { it.first }).entries.joinToString("; ") { (dep, crates) -> "$dep by ${crates.joinToString()}" }
-                        )
+                    .flatMap { crate -> crate.allDeps().filter { it.name != crate.name }.map { crate.name to it } }
+                    .distinct()
+                    .groupBy { (_, dep) -> dep.name }
+                    .mapValues { (name, requests) ->
+                        val deps = requests.map { it.second }
+                        if (deps.any { !it.hasSameSource(deps[0]) }) {
+                            throw IllegalStateException(
+                                    "Crates request dependency '$name' at conflicting versions or sources: " +
+                                            requests.groupBy({ it.second }, { it.first }).entries.joinToString("; ") { (dep, crates) -> "$dep by ${crates.joinToString()}" }
+                            )
+                        }
+                        deps[0].withFeatures(deps.map { it.features.toSet() }.reduce { shared, next -> shared intersect next }.toList())
                     }
-                }
         }
 
         private fun writeSortedToml(config: Config): String {
             val copy = orderedConfig()
-            config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = valueDeepSorted(key, value) }
+            config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = valueDeepSorted(value) }
             return TomlWriter().writeToString(copy.unmodifiable()).trim() + "\n"
         }
 
-        private fun valueDeepSorted(key: String, value: Any?): Any? = when (value) {
+        private fun valueDeepSorted(value: Any?): Any? = when (value) {
             is Config -> configDeepSorted(value)
-            is List<*> -> value.map { valueDeepSorted(key, it) }
-                .let { list -> if (key in UNORDERED_LISTS) list.sortedBy { elementSortKey(it) } else list }
+            is List<*> -> value.map { valueDeepSorted(it) }.sortedBy { elementSortKey(it) }
             else -> value
         }
 
         private fun configDeepSorted(config: Config): Config {
             val copy = orderedConfig()
-            config.valueMap().entries.sortedBy { it.key }
-                .forEach { copy.valueMap()[it.key] = valueDeepSorted(it.key, it.value) }
+            config.valueMap().entries.sortedBy { it.key }.forEach { copy.valueMap()[it.key] = valueDeepSorted(it.value) }
             return copy
         }
 
@@ -234,16 +222,16 @@ class RustManifestSyncer : Callable<Unit> {
 
         private fun loadSyncProperties(bazelBin: File): List<TargetProperties> {
             return findSyncPropertiesFiles(bazelBin)
-                .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
-                .groupBy { Triple(it.name, it.cratePath, it.type) }.values
-                .map { TargetProperties.mergeList(it) }
-                .run { attachTestsAndBenches(this) }
+                    .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
+                    .groupBy { Triple(it.name, it.cratePath, it.type) }.values
+                    .map { TargetProperties.mergeList(it) }
+                    .run { attachTestsAndBenches(this) }
         }
 
         private fun findSyncPropertiesFiles(bazelBin: File): List<File> {
             val bazelBinContents = bazelBin.listFiles() ?: throw IllegalStateException()
             val filesToCheck = bazelBinContents.filter { it.isFile } + bazelBinContents
-                .filter { it.isDirectory && it.name != Paths.EXTERNAL }.flatMap { it.listFilesRecursively() }
+                    .filter { it.isDirectory && it.name != Paths.EXTERNAL }.flatMap { it.listFilesRecursively() }
             return filesToCheck.filter { it.name.endsWith(MANIFEST_PROPERTIES_SUFFIX) }.sortedBy { it.path }
         }
 
@@ -255,8 +243,8 @@ class RustManifestSyncer : Callable<Unit> {
                 // attach tests deps to the parent properties
                 var path = tp.path.toPath()
                 while (
-                    path.parent != null && path.fileName != null &&
-                    (!path.fileName.toString().equals(TESTS_DIR) && !path.fileName.toString().equals(BENCHES_DIR))
+                        path.parent != null && path.fileName != null &&
+                        (!path.fileName.toString().equals(TESTS_DIR) && !path.fileName.toString().equals(BENCHES_DIR))
                 ) {
                     path = path.parent
                 }
@@ -288,10 +276,9 @@ class RustManifestSyncer : Callable<Unit> {
                 }
             }
 
-            val packages =
-                properties.filter { it.type == TargetProperties.Type.LIB || it.type == TargetProperties.Type.BIN }
-                    .groupBy { it.cratePath }.values
-                    .map { TargetProperties.mergePackage(it) }
+            val packages = properties.filter { it.type == TargetProperties.Type.LIB || it.type == TargetProperties.Type.BIN }
+                .groupBy { it.cratePath }.values
+                .map { TargetProperties.mergePackage(it) }
 
             return packages;
         }
@@ -325,8 +312,8 @@ class RustManifestSyncer : Callable<Unit> {
 
                 val features = (properties.enabledFeatures + properties.features).distinct()
                 if (features.isNotEmpty()) {
-                    cargoToml.createSubConfig().apply {
-                        cargoToml.set<Config>("features", this)
+                cargoToml.createSubConfig().apply {
+                    cargoToml.set<Config>("features", this)
                         features.forEach { set<Config>(it, emptyList<String>()) }
                     }
                 }
@@ -336,7 +323,7 @@ class RustManifestSyncer : Callable<Unit> {
                 if (properties.deps.isNotEmpty()) {
                     cargoToml.createSubConfig().apply {
                         cargoToml.set<Config>("dependencies", this)
-                        properties.deps.forEach { set<Config>(it.name, workspaceInherited()) }
+                        properties.deps.forEach { set<Config>(it.name, workspaceInherited(it)) }
                     }
                 }
 
@@ -348,8 +335,12 @@ class RustManifestSyncer : Callable<Unit> {
                 return GENERATED_FILE_NOTICE + writeSortedToml(cargoToml)
             }
 
-            private fun workspaceInherited(): Config {
-                return orderedConfig().apply { set<Boolean>("workspace", true) }
+            private fun workspaceInherited(dependency: TargetProperties.Dependency): Config {
+                return orderedConfig().apply {
+                    set<Boolean>("workspace", true)
+                    val ownFeatures = dependency.features - workspaceDependencies.getValue(dependency.name).features
+                    if (ownFeatures.isNotEmpty()) set<List<String>>("features", ownFeatures)
+                }
             }
 
             private fun Config.createEntryPointSubConfig() {
@@ -373,21 +364,21 @@ class RustManifestSyncer : Callable<Unit> {
                     }
 
                     TargetProperties.Type.TEST -> throw IllegalStateException(
-                        "$CARGO_TOML should not be generated for sync properties of type ${properties.type}"
+                            "$CARGO_TOML should not be generated for sync properties of type ${properties.type}"
                     )
                 }
             }
 
             private fun Config.addDevDependencies() {
-                val devDependencyNames = (properties.tests + properties.benches)
-                    .flatMap { it.deps }
-                    .map { it.name }
-                    .distinct()
-                    .filter { name -> name != properties.name && properties.deps.none { it.name == name } }
-                if (devDependencyNames.isNotEmpty()) {
+                val devDependencies = (properties.tests + properties.benches)
+                        .flatMap { it.deps }
+                        .filter { dep -> dep.name != properties.name && properties.deps.none { it.name == dep.name } }
+                        .groupBy { it.name }.values
+                        .map { requests -> requests[0].withFeatures(requests.flatMap { it.features }.distinct()) }
+                if (devDependencies.isNotEmpty()) {
                     createSubConfig().apply {
                         this@addDevDependencies.set<Config>("dev-dependencies", this)
-                        devDependencyNames.forEach { set<Config>(it, workspaceInherited()) }
+                        devDependencies.forEach { set<Config>(it.name, workspaceInherited(it)) }
                     }
                 }
             }
@@ -395,7 +386,7 @@ class RustManifestSyncer : Callable<Unit> {
             private fun Config.addBins() {
                 if (properties.bins.isNotEmpty()) {
                     val mapped = properties.bins.map {
-                        if (it.entryPointPath != null) {
+                    if (it.entryPointPath != null) {
                             val path =
                                 Path(properties.cratePath).relativize(Path(it.cratePath)).resolve(it.entryPointPath)
                             createSubConfig().apply {
@@ -441,33 +432,35 @@ class RustManifestSyncer : Callable<Unit> {
         }
 
         data class TargetProperties(
-            val path: File,
-            val name: String,
-            val targetName: String,
-            val cratePath: String,
-            val type: Type,
-            val crateTypes: Collection<String>,
-            val enabledFeatures: Collection<String>,
-            val features: Collection<String>,
-            val version: String,
-            val edition: String?,
-            val entryPointPath: Path?,
-            val deps: Collection<Dependency>,
-            val bins: MutableCollection<TargetProperties>,
-            val tests: MutableCollection<TargetProperties>,
-            val benches: MutableCollection<TargetProperties>,
+                val path: File,
+                val name: String,
+                val targetName: String,
+                val cratePath: String,
+                val type: Type,
+                val crateTypes: Collection<String>,
+                val enabledFeatures: Collection<String>,
+                val features: Collection<String>,
+                val version: String,
+                val edition: String?,
+                val entryPointPath: Path?,
+                val deps: Collection<Dependency>,
+                val bins: MutableCollection<TargetProperties>,
+                val tests: MutableCollection<TargetProperties>,
+                val benches: MutableCollection<TargetProperties>,
         ) {
-            sealed class Dependency(open val name: String) {
+            fun allDeps(): List<Dependency> = (listOf(this) + tests + benches).flatMap { it.deps }
+
+            sealed class Dependency(open val name: String, open val features: List<String>) {
+                abstract fun hasSameSource(other: Dependency): Boolean
+
+                abstract fun withFeatures(features: List<String>): Dependency
+
                 abstract fun toToml(): Config
 
-                abstract fun mergeWith(other: Dependency): Dependency?
+                data class Crate(override val name: String, val version: String, override val features: List<String>) : Dependency(name, features) {
+                    override fun hasSameSource(other: Dependency) = other is Crate && other.version == version
 
-                data class Crate(override val name: String, val version: String, val features: List<String>) :
-                    Dependency(name) {
-                    override fun mergeWith(other: Dependency): Dependency? {
-                        if (other !is Crate || other.version != version) return null
-                        return copy(features = (features + other.features).distinct())
-                    }
+                    override fun withFeatures(features: List<String>) = copy(features = features)
 
                     override fun toToml(): Config {
                         return orderedConfig().apply {
@@ -479,14 +472,13 @@ class RustManifestSyncer : Callable<Unit> {
                 }
 
                 data class Local(
-                    override val name: String,
-                    val local_path: String,
-                    val features: List<String>,
-                ) : Dependency(name) {
-                    override fun mergeWith(other: Dependency): Dependency? {
-                        if (other !is Local || other.local_path != local_path) return null
-                        return copy(features = (features + other.features).distinct())
-                    }
+                        override val name: String,
+                        val local_path: String,
+                        override val features: List<String>,
+                ) : Dependency(name, features) {
+                    override fun hasSameSource(other: Dependency) = other is Local && other.local_path == local_path
+
+                    override fun withFeatures(features: List<String>) = copy(features = features)
 
                     override fun toToml(): Config {
                         return orderedConfig().apply {
@@ -498,18 +490,16 @@ class RustManifestSyncer : Callable<Unit> {
                 }
 
                 data class Git(
-                    override val name: String,
-                    val repoName: String,
-                    val commit: String?,
-                    val tag: String?,
-                    val features: List<String>,
-                ) : Dependency(name) {
-                    override fun mergeWith(other: Dependency): Dependency? {
-                        if (other !is Git || other.repoName != repoName || other.commit != commit || other.tag != tag) {
-                            return null
-                        }
-                        return copy(features = (features + other.features).distinct())
-                    }
+                        override val name: String,
+                        val repoName: String,
+                        val commit: String?,
+                        val tag: String?,
+                        override val features: List<String>,
+                ) : Dependency(name, features) {
+                    override fun hasSameSource(other: Dependency) =
+                            other is Git && other.repoName == repoName && other.commit == commit && other.tag == tag
+
+                    override fun withFeatures(features: List<String>) = copy(features = features)
 
                     override fun toToml(): Config {
                         return orderedConfig().apply {
@@ -530,14 +520,14 @@ class RustManifestSyncer : Callable<Unit> {
                 companion object {
                     fun of(name: String, rawValue: String, workspaceRefs: JsonObject): Dependency {
                         val rawValueProps = rawValue.split(";")
-                            .associate { it.split("=", limit = 2).let { parts -> parts[0] to parts[1] } }
+                                .associate { it.split("=", limit = 2).let { parts -> parts[0] to parts[1] } }
                         val features =
                             rawValueProps[ENABLED_FEATURES]?.split(",")?.filter { it != "bazel" } ?: emptyList();
                         return if (VERSION in rawValueProps) {
                             Crate(
-                                name = name,
-                                version = rawValueProps[VERSION]!!,
-                                features = features,
+                                    name = name,
+                                    version = rawValueProps[VERSION]!!,
+                                    features = features,
                             )
                         } else if (WORKSPACE_NAME in rawValueProps) {
                             // WARN: we rely on this naming scheme:
@@ -545,17 +535,17 @@ class RustManifestSyncer : Callable<Unit> {
                             val workspaceName = rawValueProps[WORKSPACE_NAME]!!;
                             val repoName = workspaceName.removeSuffix("+").replace("_", "-");
                             Git(
-                                name = name,
-                                repoName = repoName,
-                                commit = workspaceRefs["commits"].asObject()[workspaceName]?.asString(),
-                                tag = workspaceRefs["tags"].asObject()[workspaceName]?.asString(),
-                                features = features,
+                                    name = name,
+                                    repoName = repoName,
+                                    commit = workspaceRefs["commits"].asObject()[workspaceName]?.asString(),
+                                    tag = workspaceRefs["tags"].asObject()[workspaceName]?.asString(),
+                                    features = features,
                             )
                         } else {
                             Local(
-                                name = name,
-                                local_path = rawValueProps[REPO_PATH] ?: rawValueProps[PATH]!!,
-                                features = features,
+                                    name = name,
+                                    local_path = rawValueProps[REPO_PATH] ?: rawValueProps[PATH]!!,
+                                    features = features,
                             )
                         }
                     }
@@ -584,21 +574,21 @@ class RustManifestSyncer : Callable<Unit> {
                     val props = Properties().apply { load(FileInputStream(path.toString())) }
                     try {
                         return TargetProperties(
-                            path = path,
-                            name = props.getProperty(NAME),
-                            targetName = props.getProperty(TARGET_NAME),
-                            type = Type.of(props.getProperty(TYPE)),
-                            crateTypes = listOf(props.getProperty(CRATE_TYPE)),
-                            enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
-                            features = props.getProperty(FEATURES).split(",").filter { it.isNotBlank() },
-                            version = props.getProperty(VERSION),
-                            edition = props.getProperty(EDITION, "2024"),
-                            deps = parseDependencies(extractDependencyEntries(props), workspaceRefs),
-                            entryPointPath = props.getProperty(ENTRY_POINT_PATH)?.let { Path(it) },
-                            cratePath = props.getProperty(PATH),
-                            bins = mutableListOf(),
-                            tests = mutableListOf(),
-                            benches = mutableListOf(),
+                                path = path,
+                                name = props.getProperty(NAME),
+                                targetName = props.getProperty(TARGET_NAME),
+                                type = Type.of(props.getProperty(TYPE)),
+                                crateTypes = listOf(props.getProperty(CRATE_TYPE)),
+                                enabledFeatures = props.getProperty(ENABLED_FEATURES).split(",").filter { it.isNotBlank() },
+                                features = props.getProperty(FEATURES).split(",").filter { it.isNotBlank() },
+                                version = props.getProperty(VERSION),
+                                edition = props.getProperty(EDITION, "2024"),
+                                deps = parseDependencies(extractDependencyEntries(props), workspaceRefs),
+                                entryPointPath = props.getProperty(ENTRY_POINT_PATH)?.let { Path(it) },
+                                cratePath = props.getProperty(PATH),
+                                bins = mutableListOf(),
+                                tests = mutableListOf(),
+                                benches = mutableListOf(),
                         )
                     } catch (e: Exception) {
                         throw IllegalStateException("Failed to parse Manifest Sync properties file at $path", e)
@@ -609,10 +599,10 @@ class RustManifestSyncer : Callable<Unit> {
                     var base = all_properties.get(0);
                     all_properties.subList(1, all_properties.size).forEach { properties ->
                         base = base.copy(
-                            crateTypes = (base.crateTypes + properties.crateTypes).distinct(),
-                            enabledFeatures = (base.enabledFeatures + properties.enabledFeatures).distinct(),
-                            features = (base.features + properties.features).distinct(),
-                            deps = (base.deps + properties.deps).distinct(),
+                                crateTypes = (base.crateTypes + properties.crateTypes).distinct(),
+                                enabledFeatures = (base.enabledFeatures + properties.enabledFeatures).distinct(),
+                                features = (base.features + properties.features).distinct(),
+                                deps = (base.deps + properties.deps).distinct(),
                         )
                     };
                     return base;
@@ -629,22 +619,19 @@ class RustManifestSyncer : Callable<Unit> {
                     val lib = libs.firstOrNull()
                     val base = lib ?: bins[0].copy(name = bins[0].cratePath.replace('/', '-'))
                     return base.copy(
-                        deps = package_properties.flatMap { it.deps }.filter { it.name != lib?.name }.distinct(),
-                        bins = bins.toMutableList(),
+                            deps = package_properties.flatMap { it.deps }.filter { it.name != lib?.name }.distinct(),
+                            bins = bins.toMutableList(),
                     )
                 }
 
                 private fun extractDependencyEntries(props: Properties): Map<String, String> {
                     return props.entries
-                        .map { it.key.toString() to it.value.toString() }
-                        .filter { it.first.startsWith("$DEPS_PREFIX.") }
-                        .associate { it.first.removePrefix("$DEPS_PREFIX.") to it.second }
+                            .map { it.key.toString() to it.value.toString() }
+                            .filter { it.first.startsWith("$DEPS_PREFIX.") }
+                            .associate { it.first.removePrefix("$DEPS_PREFIX.") to it.second }
                 }
 
-                private fun parseDependencies(
-                    raw: Map<String, String>,
-                    workspaceRefs: JsonObject
-                ): Collection<Dependency> {
+                private fun parseDependencies(raw: Map<String, String>, workspaceRefs: JsonObject): Collection<Dependency> {
                     return raw.map { Dependency.of(it.key, it.value, workspaceRefs) }
                 }
             }
@@ -674,8 +661,6 @@ class RustManifestSyncer : Callable<Unit> {
         }
 
         companion object {
-            // lists whose order cargo ignores; any other list is written in the order it was built
-            val UNORDERED_LISTS = setOf("members", "crate-type", "features", "bin", "test", "bench")
             const val GENERATED_FILE_NOTICE =
                 """# Generated by TypeDB Cargo sync tool.
 # Do not modify this file.
