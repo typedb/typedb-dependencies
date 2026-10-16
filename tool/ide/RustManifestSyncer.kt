@@ -22,7 +22,10 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.BAZEL
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.BAZEL_BIN
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.BUILD
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.CQUERY
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.GIT
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.INFO
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.LS_FILES
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.MANIFESTS_GLOB
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_BASE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_FILES
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_GROUPS
@@ -49,6 +52,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import java.util.Properties
@@ -156,16 +160,15 @@ class RustManifestSyncer : Callable<Unit> {
         }
 
         // a package that is no longer generated would otherwise keep its old manifest; older notices began with a blank line.
+        // Candidates are the files git tracks or would track, as the CI gate compares those
         private fun deleteGeneratedManifests() {
             val noticeLine = GENERATED_FILE_NOTICE.lineSequence().first()
-            workspace.toFile().walkTopDown()
-                    .onEnter { dir ->
-                        dir.toPath() == workspace || (!Files.isSymbolicLink(dir.toPath()) &&
-                                !dir.name.startsWith("bazel-") && dir.name !in listOf(".git", "target"))
-                    }
-                    .filter { it.name == CARGO_TOML }
-                    .filter { file -> file.useLines { lines -> lines.firstOrNull { it.isNotBlank() } } == noticeLine }
-                    .forEach { it.delete() }
+            shell.execute(listOf(GIT, LS_FILES, "-z", "--cached", "--others", "--exclude-standard", "--", MANIFESTS_GLOB), workspace)
+                    .outputString().split('\u0000').filter { it.isNotEmpty() }.distinct()
+                    .map { workspace.resolve(it) }
+                    .filter { Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }
+                    .filter { file -> file.toFile().useLines { lines -> lines.firstOrNull { it.isNotBlank() } } == noticeLine }
+                    .forEach { Files.delete(it) }
         }
 
         private fun createCargoWorkspace(
@@ -196,7 +199,7 @@ class RustManifestSyncer : Callable<Unit> {
         // a workspace entry carries the features all requests share, a package's library and binaries counting as one
         // request and each of its tests and benches as its own
         private fun workspaceDependencies(targets: List<TargetProperties>): Map<String, TargetProperties.Dependency> {
-            return targets.flatMap { crate -> val ownNames = crate.ownNames(); crate.allDeps().filter { it.name !in ownNames } }
+            return targets.flatMap { crate -> crate.allDeps().filter { it.name !in crate.ownNames() } }
                     .groupBy { it.name }
                     .mapValues { (_, requests) -> TargetProperties.Dependency.intersection(requests) }
         }
@@ -205,7 +208,7 @@ class RustManifestSyncer : Callable<Unit> {
             return findSyncPropertiesFiles(bazelBin)
                     .map { TargetProperties.fromPropertiesFile(it, workspaceRefs) }
                     .groupBy { Triple(it.name, it.cratePath, it.type) }.values
-                    .map { TargetProperties.mergeList(it) }
+                    .map { TargetProperties.mergeVariants(it) }
                     .run { assemblePackages(this) }
         }
 
@@ -260,7 +263,11 @@ class RustManifestSyncer : Callable<Unit> {
             val packages = properties.filter { it.type == TargetProperties.Type.LIB || it.type == TargetProperties.Type.BIN }
                 .groupBy { it.cratePath }.values
                 .map { TargetProperties.mergePackage(it) }
-
+            packages.groupBy { it.name }.values.firstOrNull { it.size > 1 }?.let { clash ->
+                throw IllegalStateException(
+                        "Packages ${clash.map { "//" + it.cratePath }} are both named '${clash[0].name}', which cargo rejects"
+                )
+            }
             return packages;
         }
 
@@ -591,7 +598,7 @@ class RustManifestSyncer : Callable<Unit> {
                     }
                 }
 
-                fun mergeList(allProperties: List<TargetProperties>): TargetProperties {
+                fun mergeVariants(allProperties: List<TargetProperties>): TargetProperties {
                     var base = allProperties.get(0);
                     allProperties.subList(1, allProperties.size).forEach { properties ->
                         base = base.copy(
@@ -679,5 +686,8 @@ class RustManifestSyncer : Callable<Unit> {
         const val OUTPUT_FILES = "--output=files"
         const val OUTPUT_BASE = "output_base"
         const val RUST_TARGETS_QUERY = "kind(rust_*, //...)"
+        const val GIT = "git"
+        const val LS_FILES = "ls-files"
+        const val MANIFESTS_GLOB = ":(glob)**/Cargo.toml"
     }
 }
