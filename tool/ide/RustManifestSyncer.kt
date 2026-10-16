@@ -163,8 +163,14 @@ class RustManifestSyncer : Callable<Unit> {
         // Candidates are the files git tracks or would track, as the CI gate compares those
         private fun deleteGeneratedManifests() {
             val noticeLine = GENERATED_FILE_NOTICE.lineSequence().first()
-            shell.execute(listOf(GIT, LS_FILES, "-z", "--cached", "--others", "--exclude-standard", "--", MANIFESTS_GLOB), workspace)
-                    .outputString().split('\u0000').filter { it.isNotEmpty() }.distinct()
+            val listing = runCatching {
+                shell.execute(listOf(GIT, LS_FILES, "-z", "--cached", "--others", "--", MANIFESTS_GLOB), workspace, throwOnError = false)
+            }.getOrNull()
+            if (listing == null || listing.exitValue != 0) {
+                logger.debug { "$workspace is not a git checkout; stale generated manifests are left in place" }
+                return
+            }
+            listing.outputString().split('\u0000').filter { it.isNotEmpty() }.distinct()
                     .map { workspace.resolve(it) }
                     .filter { Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }
                     .filter { file -> file.toFile().useLines { lines -> lines.firstOrNull { it.isNotBlank() } } == noticeLine }
