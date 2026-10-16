@@ -2,6 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
 load("@rules_rust//rust:defs.bzl", "rust_library")
 load("@typedb_dependencies//tool/checkstyle:rules.bzl", "checkstyle_test")
 
@@ -21,6 +22,12 @@ rust_library(
     crate_features = ["beta"],
     tags = ["crate-name=lib0", "declared-features=alpha,beta"],
     visibility = ["//visibility:public"],
+)
+
+# the binary rules_rust generates for a build script must not become a [[bin]] of the package
+cargo_build_script(
+    name = "lib0_build",
+    srcs = ["build.rs"],
 )
 
 checkstyle_test(

@@ -160,7 +160,7 @@ class RustManifestSyncer : Callable<Unit> {
         }
 
         // a package that is no longer generated would otherwise keep its old manifest; older notices began with a blank line.
-        // Candidates are the files git tracks or would track, as the CI gate compares those
+        // Ignored files are candidates too, since consuming repositories may gitignore their generated manifests
         private fun deleteGeneratedManifests() {
             val noticeLine = GENERATED_FILE_NOTICE.lineSequence().first()
             val listing = runCatching {
@@ -691,7 +691,8 @@ class RustManifestSyncer : Callable<Unit> {
         const val CQUERY = "cquery"
         const val OUTPUT_FILES = "--output=files"
         const val OUTPUT_BASE = "output_base"
-        const val RUST_TARGETS_QUERY = "kind(rust_*, //...)"
+        // cargo_build_script generates a rust_binary for the script itself, which is not a crate of the workspace
+        const val RUST_TARGETS_QUERY = "kind(rust_*, //...) except labels(script, kind(cargo_build_script_runfiles, //...))"
         const val GIT = "git"
         const val LS_FILES = "ls-files"
         const val MANIFESTS_GLOB = ":(glob)**/Cargo.toml"

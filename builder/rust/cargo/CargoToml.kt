@@ -19,7 +19,7 @@ object CargoToml {
 
     fun orderedConfig(): Config = Config.of({ LinkedHashMap() }, InMemoryFormat.defaultInstance())
 
-    // root keys keep their build order so [package] stays first; nested table keys are sorted here, lists where built
+    // root keys keep their build order so [package] stays first; nested table keys are sorted here, and callers sort lists
     fun toDeterministicTomlString(config: Config): String {
         val copy = orderedConfig()
         config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = withSortedKeys(value) }
