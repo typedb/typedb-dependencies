@@ -9,7 +9,7 @@ package com.typedb.dependencies.builder.rust.cargo
 import com.electronwill.nightconfig.core.Config
 import com.typedb.dependencies.builder.rust.cargo.CargoToml.GENERATED_FILE_NOTICE
 import com.typedb.dependencies.builder.rust.cargo.CargoToml.orderedConfig
-import com.typedb.dependencies.builder.rust.cargo.CargoToml.writeSortedToml
+import com.typedb.dependencies.builder.rust.cargo.CargoToml.toDeterministicTomlString
 
 import picocli.CommandLine
 import java.io.FileInputStream
@@ -61,7 +61,7 @@ class ManifestWriter : Callable<Unit> {
         // This is needed on Windows where Bazel sandboxing doesn't fully isolate the execroot
         cargoToml.set<Config>("workspace", orderedConfig())
 
-        return GENERATED_FILE_NOTICE + writeSortedToml(cargoToml)
+        return GENERATED_FILE_NOTICE + toDeterministicTomlString(cargoToml)
     }
 
     private fun Config.createEntryPointSubConfig() {
@@ -163,7 +163,7 @@ class ManifestWriter : Callable<Unit> {
                 override fun toToml(): Config {
                     return orderedConfig().apply {
                         set<String>("version", version)
-                        set<List<String>>("features", features)
+                        set<List<String>>("features", features.sorted())
                     }
                 }
             }

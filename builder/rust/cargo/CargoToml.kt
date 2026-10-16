@@ -19,26 +19,17 @@ object CargoToml {
 
     fun orderedConfig(): Config = Config.of({ LinkedHashMap() }, InMemoryFormat.defaultInstance())
 
-    fun writeSortedToml(config: Config): String {
+    fun toDeterministicTomlString(config: Config): String {
         val copy = orderedConfig()
-        config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = valueDeepSorted(value) }
+        config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = withSortedKeys(value) }
         return TomlWriter().writeToString(copy.unmodifiable()).trim() + "\n"
     }
 
-    private fun configDeepSorted(config: Config): Config {
-        val copy = orderedConfig()
-        config.valueMap().entries.sortedBy { it.key }.forEach { copy.valueMap()[it.key] = valueDeepSorted(it.value) }
-        return copy
-    }
-
-    private fun valueDeepSorted(value: Any?): Any? = when (value) {
-        is Config -> configDeepSorted(value)
-        is List<*> -> value.map { valueDeepSorted(it) }.sortedBy { elementSortKey(it) }
+    private fun withSortedKeys(value: Any?): Any? = when (value) {
+        is Config -> orderedConfig().also { copy ->
+            value.valueMap().entries.sortedBy { it.key }.forEach { copy.valueMap()[it.key] = withSortedKeys(it.value) }
+        }
+        is List<*> -> value.map { withSortedKeys(it) }
         else -> value
-    }
-
-    private fun elementSortKey(value: Any?): String = when (value) {
-        is Config -> value.get<String?>("name") ?: ""
-        else -> value.toString()
     }
 }
