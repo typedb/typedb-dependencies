@@ -30,6 +30,7 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_BASE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_FILES
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_GROUPS
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.QUERY
+import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.REV_PARSE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.RUST_TARGETS_QUERY
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.CARGO_TOML
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.GITHUB_TYPEDB
@@ -134,21 +135,23 @@ class RustManifestSyncer : Callable<Unit> {
         fun generateManifests(bazelBin: File) {
             val targets = loadSyncProperties(bazelBin);
             val workspaceDependencies = workspaceDependencies(targets)
-
-            val rootTomlPath = workspace.resolve(CARGO_TOML);
-            Files.deleteIfExists(rootTomlPath);
-            deleteGeneratedManifests()
-            val manifests = targets
-                    .map { ManifestGenerator(it, workspaceDependencies).generateManifest(bazelBin) }
-                    .toMutableList()
+            val contents = targets
+                    .map { ManifestGenerator(it, workspaceDependencies) }
+                    .associate { it.manifestOutputPath(bazelBin) to it.manifestContent() }
+            val manifests = contents.keys.map { it.toFile() }.toMutableList()
 
             // append Cargo Workspace to root Cargo Manifest, or create it if it does not exist
+            val rootTomlPath = workspace.resolve(CARGO_TOML);
             val workspaceManifest = manifests.stream().filter { it.toPath().parent.equals(workspace) }
                     .findFirst()
             val cargoWorkspaceConfig = createCargoWorkspace(manifests, workspaceDependencies);
             val cargoWorkspaceString = (if (workspaceManifest.isPresent) "\n" else GENERATED_FILE_NOTICE) +
                     toDeterministicTomlString(cargoWorkspaceConfig)
 
+            val staleManifests = generatedManifests()
+            Files.deleteIfExists(rootTomlPath);
+            staleManifests.forEach { Files.deleteIfExists(it) }
+            contents.forEach { (path, content) -> Files.write(path, content.toByteArray(StandardCharsets.UTF_8)) }
             Files.newOutputStream(rootTomlPath, StandardOpenOption.APPEND, StandardOpenOption.CREATE).use {
                 it.write(cargoWorkspaceString.toByteArray(StandardCharsets.UTF_8))
             }
@@ -161,20 +164,20 @@ class RustManifestSyncer : Callable<Unit> {
 
         // a package that is no longer generated would otherwise keep its old manifest; older notices began with a blank line.
         // Ignored files are candidates too, since consuming repositories may gitignore their generated manifests
-        private fun deleteGeneratedManifests() {
+        private fun generatedManifests(): List<Path> {
             val noticeLine = GENERATED_FILE_NOTICE.lineSequence().first()
-            val listing = runCatching {
-                shell.execute(listOf(GIT, LS_FILES, "-z", "--cached", "--others", "--", MANIFESTS_GLOB), workspace, throwOnError = false)
-            }.getOrNull()
-            if (listing == null || listing.exitValue != 0) {
+            val insideWorkTree = runCatching {
+                shell.execute(listOf(GIT, REV_PARSE, "--is-inside-work-tree"), workspace, throwOnError = false)
+            }.getOrNull()?.let { it.exitValue == 0 && it.outputString().trim() == "true" } ?: false
+            if (!insideWorkTree) {
                 logger.debug { "$workspace is not a git checkout; stale generated manifests are left in place" }
-                return
+                return emptyList()
             }
-            listing.outputString().split('\u0000').filter { it.isNotEmpty() }.distinct()
+            return shell.execute(listOf(GIT, LS_FILES, "-z", "--cached", "--others", "--", MANIFESTS_GLOB), workspace)
+                    .outputString().split('\u0000').filter { it.isNotEmpty() }.distinct()
                     .map { workspace.resolve(it) }
                     .filter { Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }
                     .filter { file -> file.toFile().useLines { lines -> lines.firstOrNull { it.isNotBlank() } } == noticeLine }
-                    .forEach { Files.delete(it) }
         }
 
         private fun createCargoWorkspace(
@@ -281,19 +284,11 @@ class RustManifestSyncer : Callable<Unit> {
                 private val properties: TargetProperties,
                 private val workspaceDependencies: Map<String, TargetProperties.Dependency>,
         ) {
-            fun generateManifest(bazelBin: File): File {
-                val outputPath = manifestOutputPath(bazelBin)
-                Files.newOutputStream(outputPath).use {
-                    it.write(manifestContent().toByteArray(StandardCharsets.UTF_8))
-                }
-                return outputPath.toFile()
-            }
-
-            private fun manifestOutputPath(bazelBin: File): Path {
+            fun manifestOutputPath(bazelBin: File): Path {
                 return workspace.resolve(bazelBin.toPath().relativize(Path(properties.path.parent)).resolve(CARGO_TOML))
             }
 
-            private fun manifestContent(): String {
+            fun manifestContent(): String {
                 val cargoToml = orderedConfig()
 
                 cargoToml.createSubConfig().apply {
@@ -695,6 +690,7 @@ class RustManifestSyncer : Callable<Unit> {
         const val RUST_TARGETS_QUERY = "kind(rust_*, //...) except labels(script, kind(cargo_build_script_runfiles, //...))"
         const val GIT = "git"
         const val LS_FILES = "ls-files"
+        const val REV_PARSE = "rev-parse"
         const val MANIFESTS_GLOB = ":(glob)**/Cargo.toml"
     }
 }
