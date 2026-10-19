@@ -14,7 +14,6 @@ import com.typedb.bazel.distribution.common.Logging.LogLevel.ERROR
 import com.typedb.bazel.distribution.common.Logging.Logger
 import com.typedb.bazel.distribution.common.shell.Shell
 import com.typedb.bazel.distribution.common.util.FileUtil.listFilesRecursively
-import com.typedb.dependencies.builder.rust.cargo.CargoToml.GENERATED_FILE_NOTICE
 import com.typedb.dependencies.builder.rust.cargo.CargoToml.orderedConfig
 import com.typedb.dependencies.builder.rust.cargo.CargoToml.toDeterministicTomlString
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.ASPECTS
@@ -49,7 +48,6 @@ import java.io.File
 import java.io.FileInputStream
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.util.Properties
 import java.util.concurrent.Callable
@@ -143,27 +141,13 @@ class RustManifestSyncer : Callable<Unit> {
             rootConfig.valueMap().putAll(createCargoWorkspace(manifests, workspaceDependencies).valueMap())
             val contents = (configs + (rootTomlPath to rootConfig)).mapValues { toDeterministicTomlString(it.value) }
 
-            val staleManifests = generatedManifests()
             Files.deleteIfExists(rootTomlPath);
-            staleManifests.forEach { Files.deleteIfExists(it) }
             contents.forEach { (path, content) -> Files.write(path, content.toByteArray(StandardCharsets.UTF_8)) }
 
             if (!workspaceManifest.isPresent) {
                 manifests.add(rootTomlPath.toFile())
             }
             println(manifests.joinToString(System.lineSeparator()))
-        }
-
-        // a package that is no longer generated would otherwise keep its old manifest; older notices began with a blank line.
-        // Symbolic links are not followed, so Bazel's output directories are never searched
-        private fun generatedManifests(): List<Path> {
-            val noticeLine = GENERATED_FILE_NOTICE.lineSequence().first()
-            return Files.walk(workspace).use { paths ->
-                paths.iterator().asSequence()
-                        .filter { it.fileName.toString() == CARGO_TOML && Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }
-                        .filter { file -> file.toFile().useLines { lines -> lines.firstOrNull { it.isNotBlank() } } == noticeLine }
-                        .toList()
-            }
         }
 
         private fun createCargoWorkspace(
