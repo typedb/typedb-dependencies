@@ -7,7 +7,6 @@
 package com.typedb.dependencies.builder.rust.cargo
 
 import com.electronwill.nightconfig.core.Config
-import com.typedb.dependencies.builder.rust.cargo.CargoToml.GENERATED_FILE_NOTICE
 import com.typedb.dependencies.builder.rust.cargo.CargoToml.orderedConfig
 import com.typedb.dependencies.builder.rust.cargo.CargoToml.toDeterministicTomlString
 
@@ -61,7 +60,7 @@ class ManifestWriter : Callable<Unit> {
         // This is needed on Windows where Bazel sandboxing doesn't fully isolate the execroot
         cargoToml.set<Config>("workspace", orderedConfig())
 
-        return GENERATED_FILE_NOTICE + toDeterministicTomlString(cargoToml)
+        return toDeterministicTomlString(cargoToml)
     }
 
     private fun Config.createEntryPointSubConfig() {

@@ -23,7 +23,7 @@ object CargoToml {
     fun toDeterministicTomlString(config: Config): String {
         val copy = orderedConfig()
         config.valueMap().forEach { (key, value) -> copy.valueMap()[key] = withSortedKeys(value) }
-        return TomlWriter().writeToString(copy.unmodifiable()).trim() + "\n"
+        return GENERATED_FILE_NOTICE + TomlWriter().writeToString(copy.unmodifiable()).trim() + "\n"
     }
 
     private fun withSortedKeys(value: Any?): Any? = when (value) {
