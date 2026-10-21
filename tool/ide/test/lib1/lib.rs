@@ -4,3 +4,9 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+pub fn exported() {
+    lib0::alpha();
+}
+
+#[cfg(feature = "extra")]
+pub fn extra() {}

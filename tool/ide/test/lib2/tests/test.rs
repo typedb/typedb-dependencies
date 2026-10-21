@@ -4,3 +4,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+#[test]
+fn uses_lib1_extra() {
+    lib1::extra();
+}

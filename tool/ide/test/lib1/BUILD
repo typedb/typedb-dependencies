@@ -3,17 +3,39 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
-load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
 load("@typedb_dependencies//tool/checkstyle:rules.bzl", "checkstyle_test")
 
 rust_library(
     name = "lib1",
     srcs = ["lib.rs"],
+    deps = ["//lib0:lib0_alpha"],
+    tags = ["declared-features=extra"],
+    visibility = ["//visibility:public"],
+)
+
+rust_library(
+    name = "lib1_extra",
+    crate_name = "lib1",
+    srcs = ["lib.rs"],
+    crate_features = ["extra"],
+    deps = ["//lib0:lib0_alpha"],
+    tags = ["crate-name=lib1", "declared-features=extra"],
+    visibility = ["//visibility:public"],
+)
+
+rust_binary(
+    name = "lib1_bin",
+    crate_name = "lib1",
+    srcs = ["main.rs"],
+    deps = ["//lib0:lib0_beta"],
+    tags = ["crate-name=lib1"],
 )
 
 rust_test(
     name = "lib1_unit_tests",
     crate = ":lib1",
+    deps = ["//lib2"],
 )
 
 checkstyle_test(
