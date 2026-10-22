@@ -9,5 +9,5 @@ def typedb_bazel_distribution():
     git_repository(
         name = "typedb_bazel_distribution",
         remote = "https://github.com/typedb/bazel-distribution",
-        commit = "72be1943c483b80682566b02bae75a19167d7797", # sync-marker: do not remove this comment, this is used for sync-dependencies by @typedb_bazel_distribution
+        commit = "c496caa8603aed28411b806e37ce3ebfe7e2812a", # sync-marker: do not remove this comment, this is used for sync-dependencies by @typedb_bazel_distribution
     )
