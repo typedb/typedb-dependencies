@@ -258,6 +258,13 @@ crate.annotation(
     },
 )
 crate.annotation(
+    crate = "cxx",
+    # The typedb cargo-bazel generator injects the `cxx_cc` cc_library (cxx's C++ runtime,
+    # libcxxbridge1) into cxx's BUILD file but does not wire it into the crate's deps for
+    # cxx > 1.0.194, leaving rust::cxxbridge1::* symbols undefined at link time.
+    deps = [":cxx_cc"],
+)
+crate.annotation(
     crate = "usearch",
     # cxx-build leaves a dangling sandbox-path symlink in OUT_DIR, failing Bazel output validation
     patches = ["//patches:usearch-hermetic-outdir.patch"],
