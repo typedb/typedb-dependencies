@@ -25,6 +25,7 @@ crc32fast = "1.5.0"
 crossbeam = "0.8.2"
 csv = "1.3.1"
 cxx = "1.0.59"
+# Pin DuckDB to avoid breaking changes. DO NOT use it in `typedb-driver`, since the pin propagates everywhere
 duckdb = { version = "=1.20000.1", features = ["bundled"] }
 erased-serde = "0.4.9"
 futures = { version = "0.3.30", features = ["executor", "thread-pool"] }
