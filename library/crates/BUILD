@@ -5,12 +5,12 @@
 
 load("//tool/checkstyle:rules.bzl", "checkstyle_test")
 
-exports_files(["Cargo.toml"])
+exports_files(["Cargo.toml", "Cargo.lock", "cargo-bazel-lock.json"])
 
 checkstyle_test(
     name = "checkstyle",
     include = glob(["*"]),
-    exclude = ["cargo", "Cargo.lock"],
+    exclude = ["cargo", "Cargo.lock", "cargo-bazel-lock.json"],
     license_type = "mpl-header",
     size = "small",
 )

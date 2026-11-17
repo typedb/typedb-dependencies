@@ -62,16 +62,9 @@ register_toolchains("@llvm_toolchain//:all", dev_dependency = True)
 # ===========================================================
 
 # Rust
-bazel_dep(name = "rules_rust", version = "0.56.0")
-# Backport a bug fix from rules_rust 0.58 (bazelbuild/rules_rust#3251)
-git_override(
-    module_name = "rules_rust",
-    remote = "https://github.com/bazelbuild/rules_rust",
-    tag = "0.56.0",
-    patches = ["//patches:rules_rust.patch"],
-)
+bazel_dep(name = "rules_rust", version = "0.75.0")
 
-RUST_VERSION = "1.93.0"
+RUST_VERSION = "1.98.0"
 
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
@@ -89,7 +82,8 @@ use_repo(rust, "rust_toolchains")
 register_toolchains("@rust_toolchains//:all")
 
 rust_host_tools = use_extension("@rules_rust//rust:extensions.bzl", "rust_host_tools")
-rust_host_tools.host_tools(version = RUST_VERSION)
+rust_host_tools.host_tools(name = "typedb_rust_host_tools", version = RUST_VERSION)
+use_repo(rust_host_tools, "typedb_rust_host_tools")
 
 # Kotlin
 bazel_dep(name = "rules_kotlin", version = "2.0.0", repo_name = "io_bazel_rules_kotlin")
@@ -201,6 +195,8 @@ crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
 crate.from_cargo(
     name = "crates",
     cargo_lockfile = "//:library/crates/Cargo.lock",
+    lockfile = "//library/crates:cargo-bazel-lock.json",
+    host_tools = "@typedb_rust_host_tools",
     manifests = ["//:library/crates/Cargo.toml"],
     supported_platform_triples = [
         "aarch64-apple-darwin",
