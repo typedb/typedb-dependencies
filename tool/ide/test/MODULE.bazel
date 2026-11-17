@@ -22,7 +22,7 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "aa4022a83dcb2cda769173754de40f3741b95a53",
+    commit = "28485723a1a690ca2daf3af4d5210bbe1d37377d",
 )
 
 # Rust rules (needed by BUILD files in this workspace)
