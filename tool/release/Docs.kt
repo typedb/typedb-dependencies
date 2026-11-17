@@ -87,8 +87,7 @@ fun main(args: Array<String>) {
             logger.debug { "Committing $gitRepo:$gitBranch with message $gitCommitMsg" }
             shell.execute(listOf("git", "commit", "-m", gitCommitMsg), baseDir = gitClonePath)
             logger.debug { "Pushing changes to $gitRemote" }
-            // TODO: uncomment
-            // shell.execute(Command(arg("git"), arg("push"), arg("https://$gitToken@$gitRemote", printable = false), arg(gitBranch)), baseDir = gitClonePath)
+            shell.execute(Command(arg("git"), arg("push"), arg("https://$gitToken@$gitRemote", printable = false), arg(gitBranch)), baseDir = gitClonePath)
             logger.debug { "Done!" }
         } else {
             logger.debug { "$gitOrg/$gitRepo:$gitBranch is up-to-date. Nothing to commit." }

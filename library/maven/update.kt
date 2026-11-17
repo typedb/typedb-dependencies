@@ -18,7 +18,7 @@ fun main() {
     val snapshotFile = baseDir.resolve("dependencies").resolve("maven").resolve("artifacts.snapshot")
 
     println("-------------------------")
-    println("Regenerating a new '$snapshotFile' from WORKSPACE...")
+    println("Regenerating a new '$snapshotFile' from @typedb_maven...")
     val snapshotOld = if (snapshotFile.toFile().exists()) Files.readAllLines(snapshotFile).toSortedSet() else sortedSetOf()
     val snapshotUpdateProc = ProcessBuilder().directory(baseDir.toFile()).command(snapshotCommand).start()
     val snapshotNew = snapshotUpdateProc.inputStream

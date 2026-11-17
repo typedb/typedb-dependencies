@@ -393,12 +393,15 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "c496caa8603aed28411b806e37ce3ebfe7e2812a",
+    commit = "bba8d011b87939564764d617f5fc592e541cc3f5",
 )
 
 # ===========================================================
-# Workspace compatibility
+# Workspace refs
 # ===========================================================
 
-workspace_refs_stub = use_repo_rule("//tool:workspace_refs_stub.bzl", "workspace_refs_stub")
-workspace_refs_stub(name = "typedb_dependencies_workspace_refs")
+workspace_refs = use_repo_rule("@typedb_bazel_distribution//common/workspace_refs:rules.bzl", "_workspace_refs")
+workspace_refs(
+    name = "typedb_dependencies_workspace_refs",
+    module_file = "//:MODULE.bazel",
+)

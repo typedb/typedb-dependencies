@@ -28,7 +28,6 @@ import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.OUTPUT_GROU
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.QUERY
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.ShellArgs.RUST_TARGETS_QUERY
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.CARGO_TOML
-import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.GITHUB_TYPEDB
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.Paths.MANIFEST_PROPERTIES_SUFFIX
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.CRATE_TYPE
 import com.typedb.dependencies.tool.ide.RustManifestSyncer.WorkspaceSyncer.TargetProperties.Keys.DEPS_PREFIX
@@ -444,19 +443,19 @@ class RustManifestSyncer : Callable<Unit> {
 
                 data class Git(
                         override val name: String,
-                        val repoName: String,
+                        val remote: String,
                         val commit: String?,
                         val tag: String?,
                         override val features: List<String>,
                 ) : Dependency() {
                     override fun hasSameSource(other: Dependency) =
-                            other is Git && other.repoName == repoName && other.commit == commit && other.tag == tag
+                            other is Git && other.remote == remote && other.commit == commit && other.tag == tag
 
                     override fun withFeatures(features: List<String>) = copy(features = features)
 
                     override fun toToml(): Config {
                         return orderedConfig().apply {
-                            set<String>("git", GITHUB_TYPEDB + repoName);
+                            set<String>("git", remote);
                             if (commit != null) {
                                 set<String>("rev", commit);
                             } else if (tag != null) {
@@ -505,17 +504,28 @@ class RustManifestSyncer : Callable<Unit> {
                                     features = features,
                             )
                         } else if (WORKSPACE_NAME in rawValueProps) {
-                            // WARN: we rely on this naming scheme:
-                            //       any internal git dependency is named "@{workspaceName}" where all hyphens in the name are replaced by underscores
                             val workspaceName = rawValueProps[WORKSPACE_NAME]!!;
-                            val repoName = workspaceName.removeSuffix("+").replace("_", "-");
-                            Git(
-                                    name = name,
-                                    repoName = repoName,
-                                    commit = workspaceRefs["commits"].asObject()[workspaceName]?.asString(),
-                                    tag = workspaceRefs["tags"].asObject()[workspaceName]?.asString(),
-                                    features = features,
-                            )
+                            val localRepoPath = workspaceRefs["paths"].asObject()[workspaceName]?.asString()
+                            if (localRepoPath != null) {
+                                Local(
+                                        name = name,
+                                        localPath = listOf(localRepoPath, rawValueProps[REPO_PATH]!!)
+                                                .filter { it.isNotEmpty() }.joinToString("/"),
+                                        features = features,
+                                )
+                            } else {
+                                Git(
+                                        name = name,
+                                        remote = workspaceRefs["remotes"].asObject()[workspaceName]?.asString()
+                                                ?: throw IllegalStateException(
+                                                        "Dependency '$name' comes from '$workspaceName', which has no " +
+                                                                "git_override or local_path_override in MODULE.bazel"
+                                                ),
+                                        commit = workspaceRefs["commits"].asObject()[workspaceName]?.asString(),
+                                        tag = workspaceRefs["tags"].asObject()[workspaceName]?.asString(),
+                                        features = features,
+                                )
+                            }
                         } else {
                             Local(
                                     name = name,
@@ -641,7 +651,6 @@ class RustManifestSyncer : Callable<Unit> {
             const val CARGO_TOML = "Cargo.toml"
             const val EXTERNAL = "external"
             const val MANIFEST_PROPERTIES_SUFFIX = ".cargo.properties"
-            const val GITHUB_TYPEDB = "https://github.com/typedb/"
         }
     }
 
