@@ -70,6 +70,9 @@ slog-term = "2.9.2"
 smallvec = "1.15.0"
 syn = "2.0.66"
 sysinfo = "0.33.0"
+time = { version = "0.3.47", features = ["large-dates", "formatting", "parsing"] }
+tz-rs = "0.7.3"
+tzdb = { version = "0.7.3", default-features = false }
 tempdir = "0.3.7"
 tokio = { version = "1.52.1", features = ["rt", "rt-multi-thread", "signal"] }
 tokio-rustls = { version = "0.26.2", features = ["ring"], default-features = false }
