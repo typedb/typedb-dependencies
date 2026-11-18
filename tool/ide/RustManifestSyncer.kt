@@ -93,7 +93,13 @@ class RustManifestSyncer : Callable<Unit> {
                 .outputString().trim();
 
         val bazelOutputBase = shell.execute(listOf(BAZEL, INFO, OUTPUT_BASE), workspaceDir).outputString().trim();
-        return Json.parse(File(bazelOutputBase, workspaceRefsFile).readText()).asObject();
+        val workspaceRefs = Json.parse(File(bazelOutputBase, workspaceRefsFile).readText()).asObject();
+        if (workspaceRefs["remotes"] == null || workspaceRefs["paths"] == null) {
+            throw IllegalStateException(
+                "$workspaceRefsLabel has no remotes or paths: update typedb_bazel_distribution to a version whose workspace_refs reads MODULE.bazel"
+            )
+        }
+        return workspaceRefs;
     }
 
     companion object {
