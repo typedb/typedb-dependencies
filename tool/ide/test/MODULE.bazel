@@ -22,15 +22,18 @@ bazel_dep(name = "typedb_bazel_distribution", version = "0.0.0")
 git_override(
     module_name = "typedb_bazel_distribution",
     remote = "https://github.com/typedb/bazel-distribution",
-    commit = "b676760fcad45e35f4acb420322ef674404ffe70",
+    commit = "28485723a1a690ca2daf3af4d5210bbe1d37377d",
 )
 
 # Rust rules (needed by BUILD files in this workspace)
 bazel_dep(name = "rules_rust", version = "0.56.0")
 
 # ===========================================================
-# Workspace refs stub
+# Workspace refs
 # ===========================================================
 
-workspace_refs_stub = use_repo_rule("@typedb_dependencies//tool:workspace_refs_stub.bzl", "workspace_refs_stub")
-workspace_refs_stub(name = "test_workspace_refs")
+workspace_refs = use_repo_rule("@typedb_bazel_distribution//common/workspace_refs:rules.bzl", "_workspace_refs")
+workspace_refs(
+    name = "test_workspace_refs",
+    module_file = "//:MODULE.bazel",
+)

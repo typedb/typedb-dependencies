@@ -266,7 +266,11 @@ def _crate_deps_info(target, crate_info):
         if _is_universe_crate(dependency):
             location = "version={}".format(dependency_info.version)
         elif not _is_external_target(target) and _is_external_target(dependency):
-            location = "path=../{};workspace_name={}".format(dependency_info.crate_name, dependency_info.workspace_name)
+            location = "path=../{};workspace_name={};repopath={}".format(
+                dependency_info.crate_name,
+                dependency_info.workspace_name,
+                _package_path_from_root(dependency.label),
+            )
         else:
             root_to_dep = _package_path_from_root(dependency.label)
             location = "path=../{};repopath={}".format(dependency_info.crate_name, root_to_dep)
